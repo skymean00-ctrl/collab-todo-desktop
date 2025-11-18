@@ -39,6 +39,9 @@
     
     <!-- HTTP Client for AI Service -->
     <PackageReference Include="System.Net.Http.Json" Version="8.0.0" />
+    
+    <!-- Dependency Injection -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>

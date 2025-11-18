@@ -15,12 +15,12 @@ namespace CollabTodoDesktop.Services;
 public class AiClientService : IAiClientService
 {
     private readonly AiServiceConfig _config;
-    private readonly HttpClient _httpClient;
+    private readonly IHttpClientFactory _httpClientFactory;
 
-    public AiClientService(AiServiceConfig config, HttpClient httpClient)
+    public AiClientService(AiServiceConfig config, IHttpClientFactory httpClientFactory)
     {
         _config = config ?? throw new ArgumentNullException(nameof(config));
-        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
     }
 
     public async Task<string> SummarizeTextAsync(string text, string targetLanguage = "ko")
@@ -41,6 +41,7 @@ public class AiClientService : IAiClientService
             target_language = targetLanguage
         };
 
+        using var httpClient = _httpClientFactory.CreateClient();
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
         request.Content = JsonContent.Create(payload);
 
@@ -54,7 +55,7 @@ public class AiClientService : IAiClientService
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_config.TimeoutSeconds));
-            var response = await _httpClient.SendAsync(request, cts.Token);
+            var response = await httpClient.SendAsync(request, cts.Token);
 
             if (!response.IsSuccessStatusCode)
             {
