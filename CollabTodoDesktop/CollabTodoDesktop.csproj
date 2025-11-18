@@ -15,6 +15,9 @@
     <Description>Windows용 협업 워크플로우 할 일 관리 프로그램</Description>
     <Copyright>Copyright © 2025</Copyright>
     
+    <!-- Enable Windows targeting for cross-platform builds (Linux -> Windows) -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    
     <!-- Self-contained deployment settings -->
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
@@ -42,6 +45,9 @@
     
     <!-- Dependency Injection -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+    
+    <!-- HTTP Client Factory -->
+    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>

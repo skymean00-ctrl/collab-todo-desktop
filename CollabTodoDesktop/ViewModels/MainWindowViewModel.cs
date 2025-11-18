@@ -91,7 +91,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
     public ObservableCollection<string> DashboardItems { get; } = new();
 
-    private async Task InitializeAsync()
+    private async System.Threading.Tasks.Task InitializeAsync()
     {
         try
         {
@@ -107,7 +107,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
-    private async Task InitializeUserSelectionAsync()
+    private async System.Threading.Tasks.Task InitializeUserSelectionAsync()
     {
         var configManager = _serviceProvider.GetRequiredService<ConfigurationManager>();
         var dbConfig = configManager.LoadDatabaseConfig();
@@ -209,7 +209,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
-    private void UpdateDashboard(DateTime now, System.Collections.Generic.List<Task> tasks)
+    private void UpdateDashboard(DateTime now, System.Collections.Generic.List<Models.Task> tasks)
     {
         var dashboardService = _serviceProvider.GetRequiredService<IDashboardService>();
         var summary = dashboardService.SummarizeTasks(tasks, now);

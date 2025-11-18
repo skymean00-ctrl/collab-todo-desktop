@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MySqlConnector;
-using CollabTodoDesktop.Models;
+using Models = CollabTodoDesktop.Models;
 using CollabTodoDesktop.Configuration;
 using CollabTodoDesktop.Utils;
 
@@ -22,7 +22,7 @@ public class TaskRepository : ITaskRepository
         _config = config ?? throw new ArgumentNullException(nameof(config));
     }
 
-    public async Task<List<Task>> ListTasksForAssigneeAsync(int userId, bool includeCompleted = false, DateTime? lastSyncedAt = null)
+    public async Task<List<Models.Task>> ListTasksForAssigneeAsync(int userId, bool includeCompleted = false, DateTime? lastSyncedAt = null)
     {
         if (userId <= 0)
             return new List<Task>();
@@ -128,7 +128,7 @@ public class TaskRepository : ITaskRepository
             command.Parameters.AddWithValue("@userId", userId);
         }
 
-        var tasks = new List<Task>();
+        var tasks = new List<Models.Task>();
         using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
@@ -138,10 +138,10 @@ public class TaskRepository : ITaskRepository
         return tasks;
     }
 
-    public async Task<List<Task>> ListTasksCreatedByUserAsync(int userId)
+    public async Task<List<Models.Task>> ListTasksCreatedByUserAsync(int userId)
     {
         if (userId <= 0)
-            return new List<Task>();
+            return new List<Models.Task>();
 
         using var conn = await DatabaseConnectionHelper.CreateConnectionAsync(_config);
         
@@ -155,7 +155,7 @@ public class TaskRepository : ITaskRepository
         ";
         command.Parameters.AddWithValue("@userId", userId);
 
-        var tasks = new List<Task>();
+        var tasks = new List<Models.Task>();
         using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
@@ -360,7 +360,7 @@ public class TaskRepository : ITaskRepository
         }
     }
 
-    private static Task RowToTask(MySqlDataReader reader)
+    private static Models.Task RowToTask(MySqlDataReader reader)
     {
         // status 문자열을 TaskStatus enum으로 변환
         var statusStr = reader.GetString("status").ToLowerInvariant();
@@ -375,7 +375,7 @@ public class TaskRepository : ITaskRepository
             _ => TaskStatus.Pending
         };
 
-        return new Task
+        return new Models.Task
         {
             Id = reader.GetInt32("id"),
             ProjectId = reader.GetInt32("project_id"),

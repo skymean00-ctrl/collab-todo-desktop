@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using CollabTodoDesktop.Models;
+using Models = CollabTodoDesktop.Models;
 
 namespace CollabTodoDesktop.Repositories;
 
@@ -16,12 +16,12 @@ public interface ITaskRepository
     /// <param name="userId">담당자 사용자 ID</param>
     /// <param name="includeCompleted">완료된 작업 포함 여부</param>
     /// <param name="lastSyncedAt">마지막 동기화 시각 (증분 동기화용, null이면 전체 조회)</param>
-    Task<List<Task>> ListTasksForAssigneeAsync(int userId, bool includeCompleted = false, DateTime? lastSyncedAt = null);
+    Task<List<Models.Task>> ListTasksForAssigneeAsync(int userId, bool includeCompleted = false, DateTime? lastSyncedAt = null);
 
     /// <summary>
     /// 사용자가 작성자로 되어 있는 작업 목록을 조회합니다.
     /// </summary>
-    Task<List<Task>> ListTasksCreatedByUserAsync(int userId);
+    Task<List<Models.Task>> ListTasksCreatedByUserAsync(int userId);
 
     /// <summary>
     /// 새 작업을 생성합니다.

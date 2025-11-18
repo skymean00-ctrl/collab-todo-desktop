@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CollabTodoDesktop.Models;
+using Models = CollabTodoDesktop.Models;
 
 namespace CollabTodoDesktop.Services;
 
@@ -11,7 +11,7 @@ namespace CollabTodoDesktop.Services;
 /// </summary>
 public class DashboardService : IDashboardService
 {
-    public TaskSummary SummarizeTasks(List<Task> tasks, DateTime now)
+    public TaskSummary SummarizeTasks(List<Models.Task> tasks, DateTime now)
     {
         var total = tasks.Count;
         var pending = 0;

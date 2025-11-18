@@ -1,0 +1,7 @@
+/home/skymean00/projects/collab-todo-desktop/CollabTodoDesktop/obj/Release/net8.0-windows/win-x64/CollabTodoDesktop.csproj.AssemblyReference.cache
+/home/skymean00/projects/collab-todo-desktop/CollabTodoDesktop/obj/Release/net8.0-windows/win-x64/Views/UserSelectionDialog.baml
+/home/skymean00/projects/collab-todo-desktop/CollabTodoDesktop/obj/Release/net8.0-windows/win-x64/Views/MainWindow.g.cs
+/home/skymean00/projects/collab-todo-desktop/CollabTodoDesktop/obj/Release/net8.0-windows/win-x64/Views/UserSelectionDialog.g.cs
+/home/skymean00/projects/collab-todo-desktop/CollabTodoDesktop/obj/Release/net8.0-windows/win-x64/App.g.cs
+/home/skymean00/projects/collab-todo-desktop/CollabTodoDesktop/obj/Release/net8.0-windows/win-x64/CollabTodoDesktop_MarkupCompile.cache
+/home/skymean00/projects/collab-todo-desktop/CollabTodoDesktop/obj/Release/net8.0-windows/win-x64/CollabTodoDesktop_MarkupCompile.lref

@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using CollabTodoDesktop.Models;
+using Models = CollabTodoDesktop.Models;
 
 namespace CollabTodoDesktop.Repositories;
 
@@ -12,7 +12,7 @@ public interface INotificationRepository
     /// <summary>
     /// 읽지 않은 알림 목록을 조회합니다.
     /// </summary>
-    Task<List<Notification>> ListUnreadNotificationsAsync(int userId);
+    Task<List<Models.Notification>> ListUnreadNotificationsAsync(int userId);
 
     /// <summary>
     /// 알림을 읽음 처리합니다.

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MySqlConnector;
-using CollabTodoDesktop.Models;
+using Models = CollabTodoDesktop.Models;
 using CollabTodoDesktop.Configuration;
 using CollabTodoDesktop.Utils;
 
@@ -22,10 +22,10 @@ public class NotificationRepository : INotificationRepository
         _config = config ?? throw new ArgumentNullException(nameof(config));
     }
 
-    public async Task<List<Notification>> ListUnreadNotificationsAsync(int userId)
+    public async Task<List<Models.Notification>> ListUnreadNotificationsAsync(int userId)
     {
         if (userId <= 0)
-            return new List<Notification>();
+            return new List<Models.Notification>();
 
         using var conn = await DatabaseConnectionHelper.CreateConnectionAsync(_config);
         
@@ -40,7 +40,7 @@ public class NotificationRepository : INotificationRepository
         ";
         command.Parameters.AddWithValue("@userId", userId);
 
-        var notifications = new List<Notification>();
+        var notifications = new List<Models.Notification>();
         using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
@@ -76,9 +76,9 @@ public class NotificationRepository : INotificationRepository
         await command.ExecuteNonQueryAsync();
     }
 
-    private static Notification RowToNotification(MySqlDataReader reader)
+    private static Models.Notification RowToNotification(MySqlDataReader reader)
     {
-        return new Notification
+        return new Models.Notification
         {
             Id = reader.GetInt32("id"),
             RecipientId = reader.GetInt32("recipient_id"),

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using CollabTodoDesktop.Models;
+using Models = CollabTodoDesktop.Models;
 
 namespace CollabTodoDesktop.Services;
 
@@ -13,6 +13,6 @@ public interface IDashboardService
     /// <summary>
     /// 작업 목록에 대한 간단한 집계를 수행합니다.
     /// </summary>
-    TaskSummary SummarizeTasks(List<Task> tasks, DateTime now);
+    TaskSummary SummarizeTasks(List<Models.Task> tasks, DateTime now);
 }
 
