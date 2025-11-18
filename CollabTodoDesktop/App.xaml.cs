@@ -37,10 +37,10 @@ namespace CollabTodoDesktop
         {
             // Configuration
             services.AddSingleton(Configuration);
-            services.AddSingleton<ConfigurationManager>();
+            services.AddSingleton<CollabTodoDesktop.Configuration.ConfigurationManager>();
             
             // Load configuration
-            var configManager = new ConfigurationManager(Configuration);
+            var configManager = new CollabTodoDesktop.Configuration.ConfigurationManager(Configuration);
             var dbConfig = configManager.LoadDatabaseConfig();
             var aiConfig = configManager.LoadAiServiceConfig();
 

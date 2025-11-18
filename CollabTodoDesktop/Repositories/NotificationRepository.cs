@@ -78,16 +78,19 @@ public class NotificationRepository : INotificationRepository
 
     private static Models.Notification RowToNotification(MySqlDataReader reader)
     {
+        var taskIdOrdinal = reader.GetOrdinal("task_id");
+        var readAtOrdinal = reader.GetOrdinal("read_at");
+
         return new Models.Notification
         {
-            Id = reader.GetInt32("id"),
-            RecipientId = reader.GetInt32("recipient_id"),
-            TaskId = reader.IsDBNull("task_id") ? null : reader.GetInt32("task_id"),
-            NotificationType = reader.GetString("notification_type"),
-            Message = reader.GetString("message"),
-            IsRead = reader.GetBoolean("is_read"),
-            CreatedAt = reader.GetDateTime("created_at"),
-            ReadAt = reader.IsDBNull("read_at") ? null : reader.GetDateTime("read_at")
+            Id = reader.GetInt32(reader.GetOrdinal("id")),
+            RecipientId = reader.GetInt32(reader.GetOrdinal("recipient_id")),
+            TaskId = reader.IsDBNull(taskIdOrdinal) ? null : reader.GetInt32(taskIdOrdinal),
+            NotificationType = reader.GetString(reader.GetOrdinal("notification_type")),
+            Message = reader.GetString(reader.GetOrdinal("message")),
+            IsRead = reader.GetBoolean(reader.GetOrdinal("is_read")),
+            CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at")),
+            ReadAt = reader.IsDBNull(readAtOrdinal) ? null : reader.GetDateTime(readAtOrdinal)
         };
     }
 }

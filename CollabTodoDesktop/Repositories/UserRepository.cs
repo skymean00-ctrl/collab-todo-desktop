@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MySqlConnector;
-using CollabTodoDesktop.Models;
+using Models = CollabTodoDesktop.Models;
 using CollabTodoDesktop.Configuration;
 using CollabTodoDesktop.Utils;
 
@@ -22,7 +22,7 @@ public class UserRepository : IUserRepository
         _config = config ?? throw new ArgumentNullException(nameof(config));
     }
 
-    public async Task<User?> GetUserByIdAsync(int userId)
+    public async Task<Models.User?> GetUserByIdAsync(int userId)
     {
         if (userId <= 0)
             return null;
@@ -44,7 +44,7 @@ public class UserRepository : IUserRepository
         return RowToUser(reader);
     }
 
-    public async Task<List<User>> ListActiveUsersAsync()
+    public async Task<List<Models.User>> ListActiveUsersAsync()
     {
         using var conn = await DatabaseConnectionHelper.CreateConnectionAsync(_config);
         
@@ -56,7 +56,7 @@ public class UserRepository : IUserRepository
              ORDER BY display_name ASC
         ";
 
-        var users = new List<User>();
+        var users = new List<Models.User>();
         using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
@@ -66,28 +66,28 @@ public class UserRepository : IUserRepository
         return users;
     }
 
-    private static User RowToUser(MySqlDataReader reader)
+    private static Models.User RowToUser(MySqlDataReader reader)
     {
         // role 문자열을 UserRole enum으로 변환
-        var roleStr = reader.GetString("role").ToLowerInvariant();
+        var roleStr = reader.GetString(reader.GetOrdinal("role")).ToLowerInvariant();
         var role = roleStr switch
         {
-            "user" => UserRole.User,
-            "admin" => UserRole.Admin,
-            "supervisor" => UserRole.Supervisor,
-            _ => UserRole.User
+            "user" => Models.UserRole.User,
+            "admin" => Models.UserRole.Admin,
+            "supervisor" => Models.UserRole.Supervisor,
+            _ => Models.UserRole.User
         };
 
-        return new User
+        return new Models.User
         {
-            Id = reader.GetInt32("id"),
-            Username = reader.GetString("username"),
-            DisplayName = reader.GetString("display_name"),
-            Email = reader.GetString("email"),
+            Id = reader.GetInt32(reader.GetOrdinal("id")),
+            Username = reader.GetString(reader.GetOrdinal("username")),
+            DisplayName = reader.GetString(reader.GetOrdinal("display_name")),
+            Email = reader.GetString(reader.GetOrdinal("email")),
             Role = role,
-            IsActive = reader.GetBoolean("is_active"),
-            CreatedAt = reader.GetDateTime("created_at"),
-            UpdatedAt = reader.GetDateTime("updated_at")
+            IsActive = reader.GetBoolean(reader.GetOrdinal("is_active")),
+            CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at")),
+            UpdatedAt = reader.GetDateTime(reader.GetOrdinal("updated_at"))
         };
     }
 }

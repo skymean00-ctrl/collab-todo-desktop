@@ -25,7 +25,7 @@ public class TaskRepository : ITaskRepository
     public async Task<List<Models.Task>> ListTasksForAssigneeAsync(int userId, bool includeCompleted = false, DateTime? lastSyncedAt = null)
     {
         if (userId <= 0)
-            return new List<Task>();
+            return new List<Models.Task>();
 
         using var conn = await DatabaseConnectionHelper.CreateConnectionAsync(_config);
         
@@ -223,7 +223,7 @@ public class TaskRepository : ITaskRepository
             {
                 if (!await reader.ReadAsync())
                     throw new ArgumentException("Task를 찾을 수 없습니다.");
-                oldStatus = reader.GetString("status");
+                oldStatus = reader.GetString(reader.GetOrdinal("status"));
             }
 
             if (oldStatus == "completed" || oldStatus == "cancelled")
@@ -295,8 +295,10 @@ public class TaskRepository : ITaskRepository
             {
                 if (!await reader.ReadAsync())
                     throw new ArgumentException("Task를 찾을 수 없습니다.");
-                currentStatus = reader.GetString("status");
-                nextAssigneeId = reader.IsDBNull("next_assignee_id") ? null : reader.GetInt32("next_assignee_id");
+                var statusOrdinal = reader.GetOrdinal("status");
+                var nextAssigneeIdOrdinal = reader.GetOrdinal("next_assignee_id");
+                currentStatus = reader.GetString(statusOrdinal);
+                nextAssigneeId = reader.IsDBNull(nextAssigneeIdOrdinal) ? null : reader.GetInt32(nextAssigneeIdOrdinal);
             }
 
             if (currentStatus == "completed" || currentStatus == "cancelled")
@@ -363,32 +365,37 @@ public class TaskRepository : ITaskRepository
     private static Models.Task RowToTask(MySqlDataReader reader)
     {
         // status 문자열을 TaskStatus enum으로 변환
-        var statusStr = reader.GetString("status").ToLowerInvariant();
+        var statusStr = reader.GetString(reader.GetOrdinal("status")).ToLowerInvariant();
         var status = statusStr switch
         {
-            "pending" => TaskStatus.Pending,
-            "in_progress" => TaskStatus.InProgress,
-            "review" => TaskStatus.Review,
-            "completed" => TaskStatus.Completed,
-            "on_hold" => TaskStatus.OnHold,
-            "cancelled" => TaskStatus.Cancelled,
-            _ => TaskStatus.Pending
+            "pending" => Models.TaskStatus.Pending,
+            "in_progress" => Models.TaskStatus.InProgress,
+            "review" => Models.TaskStatus.Review,
+            "completed" => Models.TaskStatus.Completed,
+            "on_hold" => Models.TaskStatus.OnHold,
+            "cancelled" => Models.TaskStatus.Cancelled,
+            _ => Models.TaskStatus.Pending
         };
+
+        var descriptionOrdinal = reader.GetOrdinal("description");
+        var nextAssigneeIdOrdinal = reader.GetOrdinal("next_assignee_id");
+        var dueDateOrdinal = reader.GetOrdinal("due_date");
+        var completedAtOrdinal = reader.GetOrdinal("completed_at");
 
         return new Models.Task
         {
-            Id = reader.GetInt32("id"),
-            ProjectId = reader.GetInt32("project_id"),
-            Title = reader.GetString("title"),
-            Description = reader.IsDBNull("description") ? null : reader.GetString("description"),
-            AuthorId = reader.GetInt32("author_id"),
-            CurrentAssigneeId = reader.GetInt32("current_assignee_id"),
-            NextAssigneeId = reader.IsDBNull("next_assignee_id") ? null : reader.GetInt32("next_assignee_id"),
+            Id = reader.GetInt32(reader.GetOrdinal("id")),
+            ProjectId = reader.GetInt32(reader.GetOrdinal("project_id")),
+            Title = reader.GetString(reader.GetOrdinal("title")),
+            Description = reader.IsDBNull(descriptionOrdinal) ? null : reader.GetString(descriptionOrdinal),
+            AuthorId = reader.GetInt32(reader.GetOrdinal("author_id")),
+            CurrentAssigneeId = reader.GetInt32(reader.GetOrdinal("current_assignee_id")),
+            NextAssigneeId = reader.IsDBNull(nextAssigneeIdOrdinal) ? null : reader.GetInt32(nextAssigneeIdOrdinal),
             Status = status,
-            DueDate = reader.IsDBNull("due_date") ? null : reader.GetDateTime("due_date"),
-            CompletedAt = reader.IsDBNull("completed_at") ? null : reader.GetDateTime("completed_at"),
-            CreatedAt = reader.GetDateTime("created_at"),
-            UpdatedAt = reader.GetDateTime("updated_at")
+            DueDate = reader.IsDBNull(dueDateOrdinal) ? null : reader.GetDateTime(dueDateOrdinal),
+            CompletedAt = reader.IsDBNull(completedAtOrdinal) ? null : reader.GetDateTime(completedAtOrdinal),
+            CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at")),
+            UpdatedAt = reader.GetDateTime(reader.GetOrdinal("updated_at"))
         };
     }
 }

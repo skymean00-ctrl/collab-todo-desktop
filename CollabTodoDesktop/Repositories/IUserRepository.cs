@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using CollabTodoDesktop.Models;
+using Models = CollabTodoDesktop.Models;
 
 namespace CollabTodoDesktop.Repositories;
 
@@ -12,11 +12,11 @@ public interface IUserRepository
     /// <summary>
     /// ID로 사용자를 조회합니다.
     /// </summary>
-    Task<User?> GetUserByIdAsync(int userId);
+    Task<Models.User?> GetUserByIdAsync(int userId);
 
     /// <summary>
     /// 활성 사용자 목록을 조회합니다.
     /// </summary>
-    Task<List<User>> ListActiveUsersAsync();
+    Task<List<Models.User>> ListActiveUsersAsync();
 }
 

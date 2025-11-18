@@ -55,7 +55,7 @@ public class SyncService : ISyncService
 
         var notifications = await _notificationRepository.ListUnreadNotificationsAsync(userId);
 
-        var result = new SyncResult
+        var syncResult = new SyncResult
         {
             Tasks = tasks,
             Notifications = notifications,
@@ -63,7 +63,7 @@ public class SyncService : ISyncService
         };
 
         var newState = new SyncState(lastSyncedAt: serverTime);
-        return (result, newState);
+        return (syncResult, newState);
     }
 }
 

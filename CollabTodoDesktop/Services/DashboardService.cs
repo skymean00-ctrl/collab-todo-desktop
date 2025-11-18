@@ -29,29 +29,29 @@ public class DashboardService : IDashboardService
         {
             switch (task.Status)
             {
-                case TaskStatus.Pending:
+                case Models.TaskStatus.Pending:
                     pending++;
                     break;
-                case TaskStatus.InProgress:
+                case Models.TaskStatus.InProgress:
                     inProgress++;
                     break;
-                case TaskStatus.Review:
+                case Models.TaskStatus.Review:
                     review++;
                     break;
-                case TaskStatus.OnHold:
+                case Models.TaskStatus.OnHold:
                     onHold++;
                     break;
-                case TaskStatus.Completed:
+                case Models.TaskStatus.Completed:
                     completed++;
                     break;
-                case TaskStatus.Cancelled:
+                case Models.TaskStatus.Cancelled:
                     cancelled++;
                     break;
             }
 
             if (task.DueDate.HasValue && 
-                task.Status != TaskStatus.Completed && 
-                task.Status != TaskStatus.Cancelled)
+                task.Status != Models.TaskStatus.Completed && 
+                task.Status != Models.TaskStatus.Cancelled)
             {
                 if (task.DueDate.Value < now)
                 {
