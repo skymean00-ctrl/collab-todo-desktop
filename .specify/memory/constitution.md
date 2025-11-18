@@ -3,11 +3,12 @@
 ## Core Principles
 
 ### I. Desktop-First Architecture
-Collab Todo Desktop is a PyQt5-based desktop application that prioritizes:
+Collab Todo Desktop is a Windows desktop application that prioritizes:
 - Native desktop experience with responsive UI
 - Offline-first capability with periodic synchronization
-- Single executable deployment target (PyInstaller)
+- Single executable deployment target (.NET Self-contained)
 - Direct database connection to NAS-hosted MySQL/PostgreSQL
+- **Technology**: C# / .NET (migrated from Python/PyQt5 for easier deployment)
 
 ### II. Repository Pattern for Data Access
 All database operations MUST be abstracted through repository functions:
@@ -32,11 +33,11 @@ Code MUST handle edge cases and failures gracefully:
 
 ### V. Separation of Concerns
 Clear separation between layers:
-- **Models**: Immutable domain objects (dataclasses)
-- **Repositories**: Data access layer (SQL queries)
+- **Models**: Immutable domain objects (C# records or classes)
+- **Repositories**: Data access layer (SQL queries, Entity Framework optional)
 - **Business Logic**: Sync, dashboard calculations
-- **UI**: PyQt5 components (MainWindow, widgets)
-- **Config**: Environment variable loading
+- **UI**: WPF/WinUI components (MainWindow, UserControls)
+- **Config**: Configuration via appsettings.json, environment variables, or config file
 
 ### VI. Testability
 Code structure MUST support testing:
@@ -54,12 +55,13 @@ Development follows phased approach:
 ## Technology Constraints
 
 ### Required Stack
-- **UI Framework**: PyQt5 (version 5.15.11)
-- **Database**: MySQL (via mysql-connector-python 9.5.0)
-- **Packaging**: PyInstaller (6.11.1) for single-file distribution
-- **Installer**: Inno Setup for Windows installer package creation
-- **Testing**: pytest (8.3.4)
-- **Python**: 3.11+ (type hints required)
+- **Language**: C# (.NET 8.0 or later)
+- **UI Framework**: WPF (Windows Presentation Foundation) or WinUI 3
+- **Database**: MySQL (via MySqlConnector or MySql.Data)
+- **Packaging**: .NET Self-contained deployment (single-file)
+- **Installer**: Inno Setup for Windows installer package creation (optional)
+- **Testing**: xUnit or NUnit
+- **IDE**: Visual Studio 2022 Community (free) or Visual Studio Code
 
 ### Database Schema
 - Foreign key constraints enforced
@@ -68,37 +70,41 @@ Development follows phased approach:
 - Indexes on frequently queried columns
 
 ### Deployment
-- Target: Windows desktop (single executable via PyInstaller)
-- Installer: Windows installer package (.exe) using Inno Setup
+- Target: Windows desktop (single executable via .NET Self-contained)
+- **Primary Method**: Single .exe file (50-80MB, all dependencies included)
+- **Optional**: Windows installer package (.exe) using Inno Setup
 - Database: NAS-hosted MySQL/PostgreSQL (network connection)
 - No local database required
-- Configuration via environment variables or config file
-- Installer MUST include:
-  - All application binaries and dependencies
+- Configuration via environment variables, appsettings.json, or config file
+- **Key Advantage**: No Python installation required, simpler deployment
+- Installer (if used) MUST include:
+  - Single executable file (self-contained)
   - Start menu shortcuts
   - Desktop shortcut (optional, user choice)
-  - Uninstaller
+  - Uninstaller (if using installer)
   - Configuration guide/documentation
 
 ## Development Workflow
 
 ### Code Quality
-- Type hints required for all function signatures
-- Docstrings for public functions and classes
+- Strong typing (C# is statically typed)
+- XML documentation comments for public APIs
 - Korean comments for business logic explanation
 - English for technical documentation
+- Follow C# coding conventions and style guidelines
 
 ### Error Handling
-- Custom exception types (`DatabaseConnectionError`, `AiSummaryError`)
+- Custom exception types (`DatabaseConnectionException`, `AiSummaryException`)
 - User-facing error messages in Korean
 - Technical details in logs/console
 - Graceful degradation (e.g., AI service unavailable)
+- Use try-catch-finally for resource management (using statements for IDisposable)
 
 ### Testing Standards
-- Unit tests for pure business logic
+- Unit tests for pure business logic (xUnit or NUnit)
 - Integration tests for repository functions (with test database)
-- UI tests for critical user flows
-- Mock external services (AI API) in tests
+- UI tests for critical user flows (optional, using UI automation)
+- Mock external services (AI API) in tests using Moq or similar
 
 ## Governance
 
@@ -108,4 +114,17 @@ This constitution guides all development decisions. When adding features:
 3. Follow defensive programming practices
 4. Update this document if principles evolve
 
-**Version**: 1.0.0 | **Ratified**: 2025-01-XX | **Last Amended**: 2025-01-XX
+**Version**: 2.0.0 | **Ratified**: 2025-01-XX | **Last Amended**: 2025-01-XX
+
+## Migration Notes
+
+### From Python/PyQt5 to C# / .NET
+
+This constitution has been updated to reflect the migration from Python/PyQt5 to C# / .NET for the following reasons:
+- **Simpler deployment**: Single .exe file without Python runtime
+- **Better Windows integration**: Native .NET framework
+- **Easier installation**: No Python installation required for end users
+- **Smaller footprint**: 50-80MB vs 100-200MB
+- **Faster startup**: Native compilation vs interpreted Python
+
+The core principles remain the same, but technology stack has been updated.
