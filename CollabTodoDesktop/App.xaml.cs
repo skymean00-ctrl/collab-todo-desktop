@@ -37,6 +37,44 @@ namespace CollabTodoDesktop
             // Configuration
             services.AddSingleton(Configuration);
             services.AddSingleton<ConfigurationManager>();
+            
+            // Load configuration
+            var configManager = new ConfigurationManager(Configuration);
+            var dbConfig = configManager.LoadDatabaseConfig();
+            var aiConfig = configManager.LoadAiServiceConfig();
+
+            // Register configuration objects
+            if (dbConfig != null)
+            {
+                services.AddSingleton(dbConfig);
+            }
+            if (aiConfig != null)
+            {
+                services.AddSingleton(aiConfig);
+            }
+
+            // HTTP Client for AI Service
+            services.AddHttpClient();
+            if (aiConfig != null)
+            {
+                services.AddScoped<Services.IAiClientService, Services.AiClientService>(
+                    sp => new Services.AiClientService(aiConfig, sp.GetRequiredService<System.Net.Http.IHttpClientFactory>()));
+            }
+
+            // Repositories
+            if (dbConfig != null)
+            {
+                services.AddScoped<Repositories.IUserRepository, Repositories.UserRepository>(
+                    sp => new Repositories.UserRepository(dbConfig));
+                services.AddScoped<Repositories.ITaskRepository, Repositories.TaskRepository>(
+                    sp => new Repositories.TaskRepository(dbConfig));
+                services.AddScoped<Repositories.INotificationRepository, Repositories.NotificationRepository>(
+                    sp => new Repositories.NotificationRepository(dbConfig));
+            }
+
+            // Services
+            services.AddScoped<Services.ISyncService, Services.SyncService>();
+            services.AddSingleton<Services.IDashboardService, Services.DashboardService>();
         }
     }
 }
