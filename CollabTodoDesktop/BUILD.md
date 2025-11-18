@@ -3,10 +3,14 @@
 ## 사전 요구사항
 
 ### 필수
-- **Windows 10 이상** (64비트)
 - **.NET 8.0 SDK** 이상
   - 다운로드: https://dotnet.microsoft.com/download/dotnet/8.0
   - 설치 확인: `dotnet --version` (8.0.x 이상)
+  - **Windows 또는 Linux에서 빌드 가능** (크로스 플랫폼 빌드 지원)
+
+### 빌드 환경
+- **Windows**: Windows 10 이상 (64비트)
+- **Linux**: Ubuntu 20.04+, Debian 11+, 또는 기타 Linux 배포판
 
 ### 선택사항
 - Visual Studio 2022 Community (무료)
@@ -15,7 +19,7 @@
 
 ## 빠른 빌드
 
-### 방법 1: 배치 스크립트 사용 (권장)
+### Windows에서 빌드
 
 1. **프로젝트 폴더로 이동**
    ```cmd
@@ -30,6 +34,36 @@
 3. **실행 파일 확인**
    - 위치: `bin\Release\net8.0\win-x64\publish\CollabTodoDesktop.exe`
    - 크기: 약 50-80MB
+
+### Linux에서 빌드 (크로스 플랫폼)
+
+1. **.NET SDK 설치** (아직 설치하지 않은 경우)
+   ```bash
+   # Ubuntu/Debian
+   wget https://dot.net/v1/dotnet-install.sh
+   chmod +x dotnet-install.sh
+   ./dotnet-install.sh --channel 8.0
+   
+   # 또는 패키지 매니저 사용
+   # Ubuntu 22.04+
+   sudo apt-get update
+   sudo apt-get install -y dotnet-sdk-8.0
+   ```
+
+2. **프로젝트 폴더로 이동**
+   ```bash
+   cd CollabTodoDesktop
+   ```
+
+3. **빌드 스크립트 실행**
+   ```bash
+   ./build_linux.sh
+   ```
+
+4. **실행 파일 확인**
+   - 위치: `bin/Release/net8.0/win-x64/publish/CollabTodoDesktop.exe`
+   - 크기: 약 50-80MB
+   - **Windows PC로 전송하여 사용**
 
 ### 방법 2: 명령줄에서 직접 빌드
 
