@@ -1,5 +1,5 @@
 @echo off
-chcp 65001 >nul
+chcp 65001 >nul 2>&1
 setlocal enabledelayedexpansion
 
 REM ============================================================
@@ -23,11 +23,14 @@ echo 인터넷 연결이 필요합니다.
 echo.
 pause
 
-REM 현재 디렉토리 저장
+REM 현재 스크립트 위치 기준으로 작업 디렉토리 설정
+set "SCRIPT_DIR=%~dp0"
 set "CURRENT_DIR=%CD%"
-set "PROJECT_DIR=%CD%\collab-todo-desktop"
+set "PROJECT_DIR=%CURRENT_DIR%\collab-todo-desktop"
+
+REM GitHub 저장소 URL
 set "GITHUB_REPO=https://github.com/skymean00-ctrl/collab-todo-desktop.git"
-set "GITHUB_ZIP=https://github.com/skymean00-ctrl/collab-todo-desktop/archive/main.zip"
+set "GITHUB_ZIP=https://github.com/skymean00-ctrl/collab-todo-desktop/archive/refs/heads/main.zip"
 
 REM ============================================================
 REM 1단계: 환경 확인
@@ -73,7 +76,7 @@ echo.
 REM 기존 프로젝트 디렉토리가 있으면 삭제
 if exist "%PROJECT_DIR%" (
     echo 기존 프로젝트 폴더를 삭제합니다...
-    rmdir /s /q "%PROJECT_DIR%"
+    rmdir /s /q "%PROJECT_DIR%" 2>nul
 )
 
 REM Git이 있으면 clone, 없으면 ZIP 다운로드
@@ -83,6 +86,9 @@ if "!HAS_GIT!"=="1" (
     if errorlevel 1 (
         echo [경고] Git clone 실패. ZIP 다운로드를 시도합니다...
         set "HAS_GIT=0"
+    ) else (
+        echo [완료] Git clone 성공
+        goto :build_start
     )
 )
 
@@ -90,15 +96,29 @@ if "!HAS_GIT!"=="0" (
     echo ZIP 파일을 다운로드합니다...
     
     REM PowerShell을 사용하여 ZIP 다운로드
-    powershell -Command "& {[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%GITHUB_ZIP%' -OutFile '%CURRENT_DIR%\project.zip'}"
+    set "ZIP_FILE=%CURRENT_DIR%\project.zip"
     
-    if not exist "%CURRENT_DIR%\project.zip" (
+    echo PowerShell로 다운로드 중...
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+        "$ProgressPreference = 'SilentlyContinue'; ^
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; ^
+        try { ^
+            Invoke-WebRequest -Uri '%GITHUB_ZIP%' -OutFile '%ZIP_FILE%' -UseBasicParsing; ^
+            Write-Host '다운로드 완료' ^
+        } catch { ^
+            Write-Host '다운로드 실패:' $_.Exception.Message; ^
+            exit 1 ^
+        }"
+    
+    if not exist "%ZIP_FILE%" (
         echo [오류] 프로젝트 다운로드 실패
         echo.
         echo 수동 다운로드 방법:
-        echo   1. %GITHUB_ZIP% 에서 ZIP 파일 다운로드
-        echo   2. 현재 폴더에 압축 해제
-        echo   3. 이 스크립트를 다시 실행
+        echo   1. 브라우저에서 다음 URL 열기:
+        echo      %GITHUB_ZIP%
+        echo   2. ZIP 파일을 현재 폴더에 저장
+        echo   3. 파일 이름을 project.zip으로 변경
+        echo   4. 이 스크립트를 다시 실행
         echo.
         pause
         exit /b 1
@@ -106,17 +126,31 @@ if "!HAS_GIT!"=="0" (
     
     REM ZIP 압축 해제
     echo ZIP 파일 압축 해제 중...
-    powershell -Command "Expand-Archive -Path '%CURRENT_DIR%\project.zip' -DestinationPath '%CURRENT_DIR%' -Force"
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+        "try { ^
+            Expand-Archive -Path '%ZIP_FILE%' -DestinationPath '%CURRENT_DIR%' -Force; ^
+            Write-Host '압축 해제 완료' ^
+        } catch { ^
+            Write-Host '압축 해제 실패:' $_.Exception.Message; ^
+            exit 1 ^
+        }"
+    
+    if errorlevel 1 (
+        echo [오류] ZIP 압축 해제 실패
+        pause
+        exit /b 1
+    )
     
     REM 압축 해제된 폴더 이름 확인 및 변경
     if exist "%CURRENT_DIR%\collab-todo-desktop-main" (
-        move "%CURRENT_DIR%\collab-todo-desktop-main" "%PROJECT_DIR%" >nul
+        move "%CURRENT_DIR%\collab-todo-desktop-main" "%PROJECT_DIR%" >nul 2>&1
     )
     
     REM ZIP 파일 삭제
-    del "%CURRENT_DIR%\project.zip"
+    del "%ZIP_FILE%" >nul 2>&1
 )
 
+:build_start
 if not exist "%PROJECT_DIR%" (
     echo [오류] 프로젝트 폴더를 찾을 수 없습니다.
     pause
@@ -128,6 +162,11 @@ echo.
 
 REM 프로젝트 디렉토리로 이동
 cd /d "%PROJECT_DIR%"
+if errorlevel 1 (
+    echo [오류] 프로젝트 디렉토리로 이동 실패
+    pause
+    exit /b 1
+)
 
 REM ============================================================
 REM 3단계: 가상환경 생성
@@ -160,6 +199,7 @@ if errorlevel 1 (
 )
 
 pip install --upgrade pip >nul 2>&1
+echo pip 업그레이드 완료
 pip install -r requirements.txt
 if errorlevel 1 (
     echo [오류] 의존성 설치 실패
@@ -175,8 +215,8 @@ REM ============================================================
 echo [5/6] PyInstaller로 실행 파일 빌드 중...
 echo.
 
-if exist "build" rmdir /s /q "build"
-if exist "dist" rmdir /s /q "dist"
+if exist "build" rmdir /s /q "build" 2>nul
+if exist "dist" rmdir /s /q "dist" 2>nul
 
 pyinstaller pyinstaller.spec --clean --noconfirm
 if errorlevel 1 (
@@ -187,10 +227,12 @@ if errorlevel 1 (
 
 if not exist "dist\CollabToDoDesktop.exe" (
     echo [오류] 실행 파일을 찾을 수 없습니다.
+    echo dist 디렉토리 내용:
+    dir dist 2>nul
     pause
     exit /b 1
 )
-echo [완료] 실행 파일 빌드 완료
+echo [완료] 실행 파일 빌드 완료: dist\CollabToDoDesktop.exe
 echo.
 
 REM ============================================================
@@ -215,10 +257,13 @@ if "!INNO_PATH!"=="" (
     echo 설치 후 이 스크립트를 다시 실행하거나,
     echo dist\CollabToDoDesktop.exe 파일을 직접 사용할 수 있습니다.
     echo.
+    echo 실행 파일 위치: %PROJECT_DIR%\dist\CollabToDoDesktop.exe
+    echo.
     pause
     exit /b 0
 )
 
+echo Inno Setup 경로: !INNO_PATH!
 "!INNO_PATH!" "%~dp0installer.iss"
 if errorlevel 1 (
     echo [오류] 설치 프로그램 생성 실패
@@ -247,8 +292,9 @@ if exist "installer\CollabTodoDesktop-Setup-1.0.0.exe" (
     echo [경고] 설치 프로그램 파일을 찾을 수 없습니다.
     echo 실행 파일은 다음 위치에 있습니다:
     echo   %PROJECT_DIR%\dist\CollabToDoDesktop.exe
+    echo.
+    echo 이 파일도 배포 가능합니다.
 )
 
 echo.
 pause
-
