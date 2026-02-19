@@ -26,9 +26,14 @@ apt-get install -y -qq \
     python3 \
     python3-pip \
     python3-venv \
+    mysql-server \
     mysql-client \
     curl \
     ufw
+
+# MySQL 서비스 활성화
+systemctl enable mysql
+systemctl start mysql
 
 # ------------------------------------------------------------
 # 2. 전용 사용자 생성 (이미 있으면 건너뜀)
@@ -81,8 +86,8 @@ if [ ! -f "$ENV_FILE" ]; then
 # 이 파일을 실제 값으로 수정하세요
 # ============================================================
 
-# MySQL 데이터베이스 설정
-COLLAB_TODO_DB_HOST=your-nas-ip-or-hostname
+# MySQL 데이터베이스 설정 (서버 로컬)
+COLLAB_TODO_DB_HOST=localhost
 COLLAB_TODO_DB_PORT=3306
 COLLAB_TODO_DB_USER=collab_todo_user
 COLLAB_TODO_DB_PASSWORD=your-secure-password
@@ -124,16 +129,21 @@ echo " 초기 설정 완료!"
 echo "============================================"
 echo ""
 echo " 다음 단계:"
-echo "  1. .env 파일을 실제 DB 정보로 수정하세요:"
+echo "  1. MySQL DB 및 사용자 생성:"
+echo "     sudo mysql -e \"CREATE DATABASE IF NOT EXISTS collab_todo DEFAULT CHARSET utf8mb4;\""
+echo "     sudo mysql -e \"CREATE USER IF NOT EXISTS 'collab_todo_user'@'localhost' IDENTIFIED BY 'your-secure-password';\""
+echo "     sudo mysql -e \"GRANT ALL PRIVILEGES ON collab_todo.* TO 'collab_todo_user'@'localhost'; FLUSH PRIVILEGES;\""
+echo ""
+echo "  2. .env 파일에서 DB 비밀번호를 실제 값으로 수정하세요:"
 echo "     sudo -u $APP_USER nano $ENV_FILE"
 echo ""
-echo "  2. DB 스키마 초기화 (처음인 경우):"
-echo "     mysql -h <DB_HOST> -u <DB_USER> -p <DB_NAME> < $APP_DIR/sql/schema_mysql.sql"
+echo "  3. DB 스키마 초기화:"
+echo "     mysql -u collab_todo_user -p collab_todo < $APP_DIR/sql/schema_mysql.sql"
 echo ""
-echo "  3. 배포 테스트:"
+echo "  4. 배포 테스트:"
 echo "     sudo -u $APP_USER $APP_DIR/scripts/deploy.sh"
 echo ""
-echo "  4. (선택) GitHub Actions 자동 배포를 위한 SSH 키 설정:"
+echo "  5. (선택) GitHub Actions 자동 배포를 위한 SSH 키 설정:"
 echo "     sudo -u $APP_USER ssh-keygen -t ed25519 -C 'github-deploy'"
 echo "     -> 생성된 공개키를 ~/.ssh/authorized_keys에 추가"
 echo "     -> 개인키를 GitHub Secrets에 DEPLOY_SSH_KEY로 등록"

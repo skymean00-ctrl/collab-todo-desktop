@@ -175,7 +175,7 @@ else
             done
         else
             warn "DB 연결 정보가 설정되지 않아 마이그레이션을 건너뜁니다."
-            warn "수동으로 실행하세요: mysql -h <HOST> -u <USER> -p <DB> < sql/<file>.sql"
+            warn "수동으로 실행하세요: mysql -u <USER> -p <DB> < sql/<file>.sql"
         fi
     else
         success "새 마이그레이션 없음 (건너뜀)"

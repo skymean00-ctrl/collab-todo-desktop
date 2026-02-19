@@ -5,7 +5,7 @@
 - **운영체제**: Windows 10 이상 (64비트 권장)
 - **메모리**: 최소 512MB RAM
 - **디스크 공간**: 최소 100MB
-- **네트워크**: NAS 호스팅 MySQL/PostgreSQL 데이터베이스에 대한 네트워크 연결
+- **네트워크**: 서버의 MySQL 데이터베이스에 대한 네트워크 연결
 
 ## 설치 방법
 
@@ -46,7 +46,7 @@
 2. **시스템 변수**에 다음 변수들을 추가합니다:
 
    ```
-   COLLAB_TODO_DB_HOST=your-nas-ip-or-hostname
+   COLLAB_TODO_DB_HOST=your-server-ip
    COLLAB_TODO_DB_PORT=3306
    COLLAB_TODO_DB_USER=your-username
    COLLAB_TODO_DB_PASSWORD=your-password
@@ -111,7 +111,7 @@ COLLAB_TODO_AI_TIMEOUT_SECONDS=15
 ### 데이터베이스 연결 오류
 
 1. **환경 변수**가 올바르게 설정되었는지 확인합니다.
-2. **네트워크 연결**을 확인합니다 (NAS에 접근 가능한지).
+2. **네트워크 연결**을 확인합니다 (서버에 접근 가능한지).
 3. **방화벽 설정**을 확인합니다 (MySQL 포트 3306이 열려있는지).
 4. **데이터베이스 서버**가 실행 중인지 확인합니다.
 
@@ -120,11 +120,11 @@ COLLAB_TODO_AI_TIMEOUT_SECONDS=15
 1. 데이터베이스 연결 정보를 확인합니다.
 2. 네트워크 연결을 테스트합니다:
    ```cmd
-   ping your-nas-ip-or-hostname
+   ping your-server-ip
    ```
 3. MySQL 포트가 열려있는지 확인합니다:
    ```cmd
-   telnet your-nas-ip 3306
+   telnet your-server-ip 3306
    ```
 
 ## 추가 리소스

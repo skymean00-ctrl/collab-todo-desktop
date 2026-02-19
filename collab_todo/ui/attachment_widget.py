@@ -107,7 +107,7 @@ class AttachmentWidget(QWidget):
         file_name = os.path.basename(file_path)
         file_size = os.path.getsize(file_path)
 
-        # 실제 환경에서는 파일을 서버/NAS에 복사 후 경로 저장
+        # 실제 환경에서는 파일을 서버에 복사 후 경로 저장
         # MVP에서는 원본 경로를 그대로 저장
         from collab_todo.config import load_db_config
         from collab_todo.db import db_connection, DatabaseConnectionError

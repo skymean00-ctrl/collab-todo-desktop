@@ -7,7 +7,7 @@
 
 ## Overview
 
-Collab Todo Desktop is a Windows desktop application (v1.0 Phase 1) built with PyQt5 that provides collaborative task management functionality. The application connects to a NAS-hosted MySQL/PostgreSQL database and provides a desktop interface for viewing and managing tasks, projects, and user assignments.
+Collab Todo Desktop is a Windows desktop application (v1.0 Phase 1) built with PyQt5 that provides collaborative task management functionality. The application connects to a server-hosted MySQL database and provides a desktop interface for viewing and managing tasks, projects, and user assignments.
 
 ## User Scenarios & Testing
 

@@ -7,7 +7,7 @@ Collab Todo Desktop is a Windows desktop application that prioritizes:
 - Native desktop experience with responsive UI
 - Offline-first capability with periodic synchronization
 - Single executable deployment target (.NET Self-contained)
-- Direct database connection to NAS-hosted MySQL/PostgreSQL
+- Direct database connection to server-hosted MySQL/PostgreSQL
 - **Technology**: C# / .NET (migrated from Python/PyQt5 for easier deployment)
 
 ### II. Repository Pattern for Data Access
@@ -73,7 +73,7 @@ Development follows phased approach:
 - Target: Windows desktop (single executable via .NET Self-contained)
 - **Primary Method**: Single .exe file (50-80MB, all dependencies included)
 - **Optional**: Windows installer package (.exe) using Inno Setup
-- Database: NAS-hosted MySQL/PostgreSQL (network connection)
+- Database: Server-hosted MySQL/PostgreSQL (localhost)
 - No local database required
 - Configuration via environment variables, appsettings.json, or config file
 - **Key Advantage**: No Python installation required, simpler deployment

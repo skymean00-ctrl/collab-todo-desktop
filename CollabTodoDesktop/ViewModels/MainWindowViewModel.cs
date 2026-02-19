@@ -243,7 +243,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
         var sampleText = (
             "이 작업은 협업 기반 할 일 관리 시스템의 초기 버전을 구현하는 것입니다. " +
-            "Windows 데스크톱 클라이언트를 만들고, NAS에 있는 MySQL 데이터베이스와 연동하며, " +
+            "Windows 데스크톱 클라이언트를 만들고, 서버의 MySQL 데이터베이스와 연동하며, " +
             "기본적인 작업 생성, 할당, 완료, 알림 기능을 제공합니다."
         );
 

@@ -426,9 +426,9 @@ CREATE TABLE IF NOT EXISTS task_viewers (
 | 항목 | 결정 | 이유 |
 |------|------|------|
 | 프레임워크 | PyQt5 (기존 유지) | 이미 구축되어 있음 |
-| DB | MySQL (기존 유지) | NAS 연결, 이미 설정됨 |
+| DB | MySQL (기존 유지) | 서버 로컬, 이미 설정됨 |
 | 인증 | bcrypt (password_hash) | 단순하고 안전 |
-| 파일 저장 | 공유 폴더 (NAS) | 건설 현장에서 NAS 사용 중 |
+| 파일 저장 | 서버 공유 폴더 | 서버에서 파일 관리 |
 | 알림 | QSystemTrayIcon | PyQt5 내장, 추가 라이브러리 불필요 |
 
 ---
