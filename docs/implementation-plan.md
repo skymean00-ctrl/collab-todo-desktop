@@ -9,7 +9,7 @@
 
 ### 1.1 tasks 테이블 변경
 
-기존 status ENUM에 `confirmed` 추가, 하위 업무 지원을 위한 `parent_task_id` 추가:
+기존 status ENUM에 `confirmed` 추가, 하위 업무 및 공개/비공개 지원:
 
 ```sql
 ALTER TABLE tasks
@@ -25,6 +25,7 @@ ALTER TABLE tasks
   ADD COLUMN parent_task_id   BIGINT UNSIGNED NULL AFTER project_id,
   ADD COLUMN confirmed_at     DATETIME NULL AFTER due_date,
   ADD COLUMN promised_date    DATETIME NULL AFTER confirmed_at,
+  ADD COLUMN is_private       TINYINT(1) NOT NULL DEFAULT 0 AFTER promised_date,
   ADD CONSTRAINT fk_tasks_parent FOREIGN KEY (parent_task_id) REFERENCES tasks(id)
     ON DELETE CASCADE ON UPDATE CASCADE,
   ADD INDEX idx_tasks_parent (parent_task_id);
@@ -35,6 +36,7 @@ ALTER TABLE tasks
 | `parent_task_id` | 상위 업무 ID (NULL이면 최상위 업무) |
 | `confirmed_at` | 담당자가 "확인" 버튼 누른 시각 |
 | `promised_date` | 담당자가 약속한 완료 기한 ("○월 ○일까지 하겠습니다") |
+| `is_private` | 0 = 전체 공개 (기본), 1 = 관련자만 열람 가능 |
 
 ### 1.2 task_attachments 테이블 (신규)
 
@@ -57,7 +59,28 @@ CREATE TABLE IF NOT EXISTS task_attachments (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ```
 
-### 1.3 users 테이블 활용
+### 1.3 task_viewers 테이블 (신규) — 비공개 업무 열람 권한
+
+```sql
+CREATE TABLE IF NOT EXISTS task_viewers (
+    id        BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    task_id   BIGINT UNSIGNED NOT NULL,
+    user_id   BIGINT UNSIGNED NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_task_viewer (task_id, user_id),
+    CONSTRAINT fk_viewers_task FOREIGN KEY (task_id) REFERENCES tasks(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_viewers_user FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
+**공개/비공개 동작 방식:**
+- `is_private = 0` (기본): 모든 팀원이 볼 수 있음 → task_viewers 무시
+- `is_private = 1`: task_viewers에 등록된 사용자 + 지시자 + 담당자만 열람 가능
+- 업무 생성 시 "비공개"를 체크하면 열람 가능 인원을 선택하는 UI 표시
+
+### 1.4 users 테이블 활용
 
 기존 스키마로 충분:
 - `is_active = 0` → 가입 신청 (승인 대기)
@@ -438,6 +461,7 @@ collab_todo/
 │   ├── project_repo.py      # 프로젝트 조회
 │   ├── task_repo.py         # 업무 CRUD
 │   ├── subtask_repo.py      # 하위 업무(자료요청) CRUD
+│   ├── viewer_repo.py       # 비공개 업무 열람 권한 CRUD
 │   ├── attachment_repo.py   # 첨부파일 CRUD
 │   ├── history_repo.py      # 업무 이력 조회
 │   └── notification_repo.py # 알림 CRUD
