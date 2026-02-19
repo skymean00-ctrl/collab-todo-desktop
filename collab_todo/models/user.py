@@ -16,7 +16,7 @@ class User:
     username: str
     display_name: str
     email: str
-    job_title: str
+    position: str
     role: UserRole
     is_active: bool
     created_at: datetime

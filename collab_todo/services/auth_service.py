@@ -77,7 +77,7 @@ def register(
     display_name: str,
     password: str,
     email: str = "",
-    job_title: str = "",
+    position: str = "",
 ) -> int:
     """
     가입 신청. is_active=0으로 생성됨.
@@ -96,7 +96,7 @@ def register(
         username=username,
         display_name=display_name,
         email=email,
-        job_title=job_title,
+        position=position,
         password_hash=password_hash,
     )
 

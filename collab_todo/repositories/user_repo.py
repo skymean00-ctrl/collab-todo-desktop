@@ -15,7 +15,7 @@ def _row_to_user(row: tuple) -> User:
         username=row[1],
         display_name=row[2],
         email=row[3],
-        job_title=row[4],
+        position=row[4],
         role=row[5],
         is_active=bool(row[6]),
         created_at=row[7],
@@ -31,7 +31,7 @@ def get_user_by_id(conn: MySQLConnection, user_id: int) -> Optional[User]:
     try:
         cursor.execute(
             """
-            SELECT id, username, display_name, email, job_title, role, is_active,
+            SELECT id, username, display_name, email, position, role, is_active,
                    created_at, updated_at
               FROM users
              WHERE id = %s
@@ -53,7 +53,7 @@ def get_user_by_username(conn: MySQLConnection, username: str) -> Optional[User]
     try:
         cursor.execute(
             """
-            SELECT id, username, display_name, email, job_title, role, is_active,
+            SELECT id, username, display_name, email, position, role, is_active,
                    created_at, updated_at
               FROM users
              WHERE username = %s
@@ -91,7 +91,7 @@ def list_active_users(conn: MySQLConnection) -> List[User]:
     try:
         cursor.execute(
             """
-            SELECT id, username, display_name, email, job_title, role, is_active,
+            SELECT id, username, display_name, email, position, role, is_active,
                    created_at, updated_at
               FROM users
              WHERE is_active = 1
@@ -111,7 +111,7 @@ def list_pending_users(conn: MySQLConnection) -> List[User]:
     try:
         cursor.execute(
             """
-            SELECT id, username, display_name, email, job_title, role, is_active,
+            SELECT id, username, display_name, email, position, role, is_active,
                    created_at, updated_at
               FROM users
              WHERE is_active = 0
@@ -131,7 +131,7 @@ def create_user(
     username: str,
     display_name: str,
     email: str,
-    job_title: str = "",
+    position: str = "",
     password_hash: str,
 ) -> int:
     """가입 신청: is_active=0 상태로 생성."""
@@ -139,10 +139,10 @@ def create_user(
     try:
         cursor.execute(
             """
-            INSERT INTO users (username, display_name, email, job_title, password_hash, is_active)
+            INSERT INTO users (username, display_name, email, position, password_hash, is_active)
             VALUES (%s, %s, %s, %s, %s, 0)
             """,
-            (username, display_name, email, job_title, password_hash),
+            (username, display_name, email, position, password_hash),
         )
         user_id = cursor.lastrowid
     finally:

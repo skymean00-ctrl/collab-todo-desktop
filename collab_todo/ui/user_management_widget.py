@@ -44,7 +44,7 @@ class UserManagementWidget(QWidget):
 
         self._pending_table = QTableWidget(0, 5)
         self._pending_table.setHorizontalHeaderLabels(
-            ["아이디", "이름", "담당업무", "이메일", "신청일"]
+            ["아이디", "이름", "직책", "이메일", "신청일"]
         )
         self._pending_table.horizontalHeader().setSectionResizeMode(
             QHeaderView.Stretch
@@ -77,7 +77,7 @@ class UserManagementWidget(QWidget):
 
         self._active_table = QTableWidget(0, 5)
         self._active_table.setHorizontalHeaderLabels(
-            ["아이디", "이름", "담당업무", "역할", "가입일"]
+            ["아이디", "이름", "직책", "역할", "가입일"]
         )
         self._active_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self._active_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -122,7 +122,7 @@ class UserManagementWidget(QWidget):
         for i, user in enumerate(self._pending_users):
             self._pending_table.setItem(i, 0, QTableWidgetItem(user.username))
             self._pending_table.setItem(i, 1, QTableWidgetItem(user.display_name))
-            self._pending_table.setItem(i, 2, QTableWidgetItem(user.job_title))
+            self._pending_table.setItem(i, 2, QTableWidgetItem(user.position))
             self._pending_table.setItem(i, 3, QTableWidgetItem(user.email))
             self._pending_table.setItem(
                 i, 4, QTableWidgetItem(user.created_at.strftime("%Y-%m-%d %H:%M"))
@@ -133,7 +133,7 @@ class UserManagementWidget(QWidget):
         for i, user in enumerate(self._active_users):
             self._active_table.setItem(i, 0, QTableWidgetItem(user.username))
             self._active_table.setItem(i, 1, QTableWidgetItem(user.display_name))
-            self._active_table.setItem(i, 2, QTableWidgetItem(user.job_title))
+            self._active_table.setItem(i, 2, QTableWidgetItem(user.position))
             self._active_table.setItem(i, 3, QTableWidgetItem(user.role))
             self._active_table.setItem(
                 i, 4, QTableWidgetItem(user.created_at.strftime("%Y-%m-%d %H:%M"))
