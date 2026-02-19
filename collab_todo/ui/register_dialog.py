@@ -25,7 +25,7 @@ class RegisterDialog(QDialog):
     def _init_ui(self) -> None:
         self.setWindowTitle("가입 신청")
         self.setModal(True)
-        self.setFixedSize(380, 320)
+        self.setFixedSize(380, 360)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
 
         layout = QVBoxLayout(self)
@@ -52,8 +52,12 @@ class RegisterDialog(QDialog):
         self._display_name_edit.setPlaceholderText("표시 이름 (한글 가능)")
         form.addRow("이름:", self._display_name_edit)
 
+        self._job_title_edit = QLineEdit()
+        self._job_title_edit.setPlaceholderText("예: 경영지원, 개발, 디자인")
+        form.addRow("담당업무:", self._job_title_edit)
+
         self._email_edit = QLineEdit()
-        self._email_edit.setPlaceholderText("선택 사항")
+        self._email_edit.setPlaceholderText("비밀번호 분실 시 필요")
         form.addRow("이메일:", self._email_edit)
 
         self._password_edit = QLineEdit()
@@ -91,6 +95,7 @@ class RegisterDialog(QDialog):
     def _on_submit(self) -> None:
         username = self._username_edit.text().strip()
         display_name = self._display_name_edit.text().strip()
+        job_title = self._job_title_edit.text().strip()
         email = self._email_edit.text().strip()
         password = self._password_edit.text()
         password_confirm = self._password_confirm_edit.text()
@@ -102,6 +107,12 @@ class RegisterDialog(QDialog):
         if not display_name:
             self._show_error("이름을 입력하세요.")
             return
+        if not job_title:
+            self._show_error("담당업무를 입력하세요.")
+            return
+        if not email:
+            self._show_error("이메일을 입력하세요. (비밀번호 분실 시 필요)")
+            return
         if not password or len(password) < 6:
             self._show_error("비밀번호는 6자 이상이어야 합니다.")
             return
@@ -109,10 +120,10 @@ class RegisterDialog(QDialog):
             self._show_error("비밀번호가 일치하지 않습니다.")
             return
 
-        self._try_register(username, display_name, email, password)
+        self._try_register(username, display_name, job_title, email, password)
 
     def _try_register(
-        self, username: str, display_name: str, email: str, password: str
+        self, username: str, display_name: str, job_title: str, email: str, password: str
     ) -> None:
         from collab_todo.config import load_db_config
         from collab_todo.db import db_connection, DatabaseConnectionError
@@ -131,6 +142,7 @@ class RegisterDialog(QDialog):
                     display_name=display_name,
                     password=password,
                     email=email,
+                    job_title=job_title,
                 )
                 conn.commit()
 

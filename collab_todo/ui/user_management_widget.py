@@ -42,9 +42,9 @@ class UserManagementWidget(QWidget):
         pending_label.setStyleSheet("font-weight: bold; font-size: 14px;")
         layout.addWidget(pending_label)
 
-        self._pending_table = QTableWidget(0, 4)
+        self._pending_table = QTableWidget(0, 5)
         self._pending_table.setHorizontalHeaderLabels(
-            ["아이디", "이름", "이메일", "신청일"]
+            ["아이디", "이름", "담당업무", "이메일", "신청일"]
         )
         self._pending_table.horizontalHeader().setSectionResizeMode(
             QHeaderView.Stretch
@@ -75,9 +75,9 @@ class UserManagementWidget(QWidget):
         )
         layout.addWidget(active_label)
 
-        self._active_table = QTableWidget(0, 4)
+        self._active_table = QTableWidget(0, 5)
         self._active_table.setHorizontalHeaderLabels(
-            ["아이디", "이름", "역할", "가입일"]
+            ["아이디", "이름", "담당업무", "역할", "가입일"]
         )
         self._active_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self._active_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -122,9 +122,10 @@ class UserManagementWidget(QWidget):
         for i, user in enumerate(self._pending_users):
             self._pending_table.setItem(i, 0, QTableWidgetItem(user.username))
             self._pending_table.setItem(i, 1, QTableWidgetItem(user.display_name))
-            self._pending_table.setItem(i, 2, QTableWidgetItem(user.email))
+            self._pending_table.setItem(i, 2, QTableWidgetItem(user.job_title))
+            self._pending_table.setItem(i, 3, QTableWidgetItem(user.email))
             self._pending_table.setItem(
-                i, 3, QTableWidgetItem(user.created_at.strftime("%Y-%m-%d %H:%M"))
+                i, 4, QTableWidgetItem(user.created_at.strftime("%Y-%m-%d %H:%M"))
             )
 
     def _populate_active_table(self) -> None:
@@ -132,9 +133,10 @@ class UserManagementWidget(QWidget):
         for i, user in enumerate(self._active_users):
             self._active_table.setItem(i, 0, QTableWidgetItem(user.username))
             self._active_table.setItem(i, 1, QTableWidgetItem(user.display_name))
-            self._active_table.setItem(i, 2, QTableWidgetItem(user.role))
+            self._active_table.setItem(i, 2, QTableWidgetItem(user.job_title))
+            self._active_table.setItem(i, 3, QTableWidgetItem(user.role))
             self._active_table.setItem(
-                i, 3, QTableWidgetItem(user.created_at.strftime("%Y-%m-%d %H:%M"))
+                i, 4, QTableWidgetItem(user.created_at.strftime("%Y-%m-%d %H:%M"))
             )
 
     def _get_selected_pending_user(self) -> User | None:

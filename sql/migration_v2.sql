@@ -1,6 +1,11 @@
 -- Migration v2: MVP 업무 흐름 관리 기능 추가
 -- 실행 전 반드시 백업할 것
 
+-- 0. users 테이블: 담당업무 컬럼 추가
+ALTER TABLE users
+  ADD COLUMN job_title VARCHAR(100) NOT NULL DEFAULT '' AFTER email;
+
+
 -- 1. tasks 테이블: 하위 업무, 확인/약속, 공개/비공개 지원
 ALTER TABLE tasks
   MODIFY COLUMN status ENUM(
