@@ -15,6 +15,7 @@ from .models import Task
 class TaskSummary:
     total: int
     pending: int
+    confirmed: int
     in_progress: int
     review: int
     on_hold: int
@@ -30,6 +31,7 @@ def summarize_tasks(tasks: List[Task], *, now: datetime) -> TaskSummary:
     """
     total = len(tasks)
     pending = 0
+    confirmed = 0
     in_progress = 0
     review = 0
     on_hold = 0
@@ -43,6 +45,8 @@ def summarize_tasks(tasks: List[Task], *, now: datetime) -> TaskSummary:
     for task in tasks:
         if task.status == "pending":
             pending += 1
+        elif task.status == "confirmed":
+            confirmed += 1
         elif task.status == "in_progress":
             in_progress += 1
         elif task.status == "review":
@@ -63,6 +67,7 @@ def summarize_tasks(tasks: List[Task], *, now: datetime) -> TaskSummary:
     return TaskSummary(
         total=total,
         pending=pending,
+        confirmed=confirmed,
         in_progress=in_progress,
         review=review,
         on_hold=on_hold,

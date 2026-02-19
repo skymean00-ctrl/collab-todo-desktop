@@ -13,6 +13,7 @@ def _make_task(status: str, *, delta_days: int | None) -> Task:
     return Task(
         id=1,
         project_id=1,
+        parent_task_id=None,
         title="t",
         description=None,
         author_id=1,
@@ -20,6 +21,9 @@ def _make_task(status: str, *, delta_days: int | None) -> Task:
         next_assignee_id=None,
         status=status,  # type: ignore[arg-type]
         due_date=due_date,
+        confirmed_at=None,
+        promised_date=None,
+        is_private=False,
         completed_at=None,
         created_at=now,
         updated_at=now,

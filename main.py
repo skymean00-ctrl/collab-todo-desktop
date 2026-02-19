@@ -220,12 +220,13 @@ class MainWindow(QMainWindow):
         widget.clear()
 
         widget.addItem(QListWidgetItem(f"전체 작업: {summary.total}"))
-        widget.addItem(QListWidgetItem(f"대기(pending): {summary.pending}"))
+        widget.addItem(QListWidgetItem(f"확인 필요: {summary.pending}"))
+        widget.addItem(QListWidgetItem(f"확인됨: {summary.confirmed}"))
         widget.addItem(QListWidgetItem(f"진행 중: {summary.in_progress}"))
-        widget.addItem(QListWidgetItem(f"검토(review): {summary.review}"))
-        widget.addItem(QListWidgetItem(f"보류(on_hold): {summary.on_hold}"))
-        widget.addItem(QListWidgetItem(f"완료(completed): {summary.completed}"))
-        widget.addItem(QListWidgetItem(f"취소(cancelled): {summary.cancelled}"))
+        widget.addItem(QListWidgetItem(f"검토: {summary.review}"))
+        widget.addItem(QListWidgetItem(f"보류: {summary.on_hold}"))
+        widget.addItem(QListWidgetItem(f"완료: {summary.completed}"))
+        widget.addItem(QListWidgetItem(f"취소: {summary.cancelled}"))
         widget.addItem(QListWidgetItem(f"기한 임박(24h): {summary.due_soon}"))
         widget.addItem(QListWidgetItem(f"기한 초과: {summary.overdue}"))
 
