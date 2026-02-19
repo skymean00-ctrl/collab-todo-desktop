@@ -26,6 +26,9 @@ from collab_todo.session import Session
 from collab_todo.ui.login_dialog import LoginDialog
 from collab_todo.ui.register_dialog import RegisterDialog
 from collab_todo.ui.user_management_widget import UserManagementWidget
+from collab_todo.ui.task_list_widget import TaskListWidget
+from collab_todo.ui.task_detail_widget import TaskDetailWidget
+from collab_todo.ui.create_task_dialog import CreateTaskDialog
 
 
 class MainWindow(QMainWindow):
@@ -52,9 +55,13 @@ class MainWindow(QMainWindow):
         self._sync_timer: Optional[QTimer] = None
         self._sync_state: SyncState = SyncState(last_synced_at=None)
 
+        self._user_map: dict[int, str] = {}
+
         self._init_ui()
+        self._init_task_panels()
         self._init_sync()
         self._init_dashboard()
+        self._load_user_map()
 
     @property
     def _current_user_id(self) -> Optional[int]:
@@ -66,10 +73,6 @@ class MainWindow(QMainWindow):
             f"{self._window_title} - {self._session.display_name}"
         )
         self.resize(1024, 640)
-
-        label = QLabel("Collab To-Do Desktop", self)
-        label.setAlignment(Qt.AlignCenter)
-        self.setCentralWidget(label)
 
         status_bar = QStatusBar(self)
         self._connection_label = QLabel("DB: 확인 중...")
@@ -110,6 +113,104 @@ class MainWindow(QMainWindow):
         logout_action = QAction("로그아웃", self)
         logout_action.triggered.connect(self._on_logout)
         account_menu.addAction(logout_action)
+
+    def _init_task_panels(self) -> None:
+        """업무 목록(좌측) + 상세(중앙) 패널 구성."""
+        from PyQt5.QtWidgets import QSplitter
+
+        splitter = QSplitter(Qt.Horizontal, self)
+
+        # 좌측: 업무 목록
+        self._task_list = TaskListWidget()
+        self._task_list.task_selected.connect(self._on_task_selected)
+        self._task_list.create_requested.connect(self._on_create_task)
+        self._task_list.view_combo.currentIndexChanged.connect(
+            lambda _: self._refresh_task_list()
+        )
+        splitter.addWidget(self._task_list)
+
+        # 우측: 업무 상세
+        self._task_detail = TaskDetailWidget(
+            current_user_id=self._session.user_id
+        )
+        self._task_detail.task_updated.connect(self._refresh_task_list)
+        splitter.addWidget(self._task_detail)
+
+        splitter.setSizes([400, 600])
+        self.setCentralWidget(splitter)
+
+    def _load_user_map(self) -> None:
+        """활성 사용자 ID→이름 맵 로드."""
+        from collab_todo.repositories import list_active_users
+
+        config = load_db_config()
+        if config is None:
+            return
+        try:
+            with db_connection(config) as conn:
+                users = list_active_users(conn)
+                self._user_map = {u.id: u.display_name for u in users}
+                self._task_detail.set_user_map(self._user_map)
+        except DatabaseConnectionError:
+            pass
+
+    def _refresh_task_list(self) -> None:
+        """현재 뷰에 맞게 업무 목록을 새로고침한다."""
+        from collab_todo.repositories import list_tasks_for_assignee, list_tasks_created_by_user
+
+        config = load_db_config()
+        if config is None or self._current_user_id is None:
+            return
+
+        try:
+            with db_connection(config) as conn:
+                if self._task_list.current_view == "assignee":
+                    tasks = list_tasks_for_assignee(conn, self._current_user_id)
+                else:
+                    tasks = list_tasks_created_by_user(conn, self._current_user_id)
+
+                self._task_list.set_tasks(tasks, self._user_map)
+        except DatabaseConnectionError:
+            pass
+
+    def _on_task_selected(self, task) -> None:
+        self._task_detail.show_task(task)
+
+    def _on_create_task(self) -> None:
+        """새 업무 생성 다이얼로그."""
+        from collab_todo.repositories import list_active_users, list_projects_for_user, create_task
+
+        config = load_db_config()
+        if config is None or self._session.user is None:
+            return
+
+        try:
+            with db_connection(config) as conn:
+                users = list_active_users(conn)
+                projects = list_projects_for_user(conn, self._session.user_id)
+
+                if not projects:
+                    QMessageBox.information(
+                        self, "프로젝트 필요", "먼저 프로젝트를 생성하세요."
+                    )
+                    return
+
+                dialog = CreateTaskDialog(
+                    current_user=self._session.user,
+                    users=users,
+                    projects=projects,
+                    parent=self,
+                )
+
+                if dialog.exec_() == QDialog.Accepted:
+                    data = dialog.get_task_data()
+                    if data is not None:
+                        create_task(conn, **data)
+                        conn.commit()
+                        self._refresh_task_list()
+
+        except DatabaseConnectionError:
+            QMessageBox.warning(self, "오류", "DB 연결에 실패했습니다.")
 
     def _init_dashboard(self) -> None:
         dock = QDockWidget("내 작업 요약", self)
@@ -164,6 +265,7 @@ class MainWindow(QMainWindow):
                 self._set_connection_status(True)
                 self._set_last_sync_time(result.server_time)
                 self._update_dashboard(result.server_time, result.tasks)
+                self._task_list.set_tasks(result.tasks, self._user_map)
         except DatabaseConnectionError:
             self._set_connection_status(False)
         except Exception as exc:
