@@ -58,6 +58,7 @@ namespace CollabTodoDesktop
 
             // 로그인 성공 → 메인 창
             var mainWindow = new MainWindow();
+            MainWindow = mainWindow;
             mainWindow.Show();
         }
     }
