@@ -29,6 +29,8 @@ from collab_todo.ui.user_management_widget import UserManagementWidget
 from collab_todo.ui.task_list_widget import TaskListWidget
 from collab_todo.ui.task_detail_widget import TaskDetailWidget
 from collab_todo.ui.create_task_dialog import CreateTaskDialog
+from collab_todo.ui.notification_widget import NotificationWidget
+from collab_todo.ui.attachment_widget import AttachmentWidget
 
 
 class MainWindow(QMainWindow):
@@ -61,6 +63,7 @@ class MainWindow(QMainWindow):
         self._init_task_panels()
         self._init_sync()
         self._init_dashboard()
+        self._init_notification_panel()
         self._load_user_map()
 
     @property
@@ -222,6 +225,17 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.RightDockWidgetArea, dock)
         self._dashboard_list = widget
 
+    def _init_notification_panel(self) -> None:
+        """알림 패널을 우측 하단에 도킹."""
+        self._notification_widget = NotificationWidget(
+            user_id=self._session.user_id
+        )
+
+        dock = QDockWidget("알림", self)
+        dock.setWidget(self._notification_widget)
+        dock.setAllowedAreas(Qt.RightDockWidgetArea | Qt.BottomDockWidgetArea)
+        self.addDockWidget(Qt.RightDockWidgetArea, dock)
+
     def _init_sync(self) -> None:
         timer = QTimer(self)
         timer.setInterval(5000)
@@ -266,6 +280,7 @@ class MainWindow(QMainWindow):
                 self._set_last_sync_time(result.server_time)
                 self._update_dashboard(result.server_time, result.tasks)
                 self._task_list.set_tasks(result.tasks, self._user_map)
+                self._notification_widget.set_notifications(result.notifications)
         except DatabaseConnectionError:
             self._set_connection_status(False)
         except Exception as exc:

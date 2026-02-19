@@ -117,6 +117,12 @@ class TaskDetailWidget(QWidget):
         self._action_layout = QHBoxLayout()
         detail_layout.addLayout(self._action_layout)
 
+        # 첨부파일 영역
+        from collab_todo.ui.attachment_widget import AttachmentWidget
+
+        self._attachment_widget = AttachmentWidget(user_id=self._current_user_id)
+        detail_layout.addWidget(self._attachment_widget)
+
         self._layout.addWidget(self._detail_group)
 
     def set_user_map(self, user_map: dict[int, str]) -> None:
@@ -152,6 +158,7 @@ class TaskDetailWidget(QWidget):
         self._desc_label.setText(task.description or "(설명 없음)")
 
         self._build_action_buttons(task)
+        self._attachment_widget.set_task(task.id)
 
     def clear(self) -> None:
         self._task = None
