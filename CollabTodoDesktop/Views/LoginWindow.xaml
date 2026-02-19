@@ -1,0 +1,52 @@
+<Window x:Class="CollabTodoDesktop.Views.LoginWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Collab To-Do — 로그인"
+        Height="320" Width="380"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize">
+    <Grid Margin="32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 타이틀 -->
+        <TextBlock Grid.Row="0" Text="Collab To-Do" FontSize="22" FontWeight="Bold"
+                   HorizontalAlignment="Center" Margin="0,0,0,24"/>
+
+        <!-- 아이디 -->
+        <TextBlock Grid.Row="1" Text="아이디" FontSize="12" Foreground="#555" Margin="0,0,0,4"/>
+        <TextBox Grid.Row="2" x:Name="UsernameBox"
+                 FontSize="14" Padding="8,6" Margin="0,0,0,12"
+                 KeyDown="OnKeyDown"/>
+
+        <!-- 비밀번호 -->
+        <TextBlock Grid.Row="3" Text="비밀번호" FontSize="12" Foreground="#555" Margin="0,0,0,4"/>
+        <PasswordBox Grid.Row="4" x:Name="PasswordBox"
+                     FontSize="14" Padding="8,6" Margin="0,0,0,16"
+                     KeyDown="OnKeyDown"/>
+
+        <!-- 오류 메시지 + 로그인 버튼 -->
+        <Grid Grid.Row="5">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock x:Name="ErrorText" Grid.Row="0"
+                       Foreground="Red" FontSize="12"
+                       HorizontalAlignment="Center"
+                       Margin="0,0,0,8" Visibility="Collapsed"/>
+
+            <Button Grid.Row="1" x:Name="LoginButton"
+                    Content="로그인" FontSize="14"
+                    Height="40" Click="OnLogin_Click"
+                    IsDefault="True"/>
+        </Grid>
+    </Grid>
+</Window>

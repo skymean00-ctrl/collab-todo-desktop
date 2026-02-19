@@ -62,6 +62,10 @@ bld/
 *.swo
 *~
 
+# Environment / Secrets
+.env
+*.env.local
+
 # OS
 .DS_Store
 Thumbs.db

@@ -1,11 +1,10 @@
 using System.Windows;
+using Microsoft.Extensions.DependencyInjection;
+using CollabTodoDesktop.Services;
 using CollabTodoDesktop.ViewModels;
 
 namespace CollabTodoDesktop.Views;
 
-/// <summary>
-/// Interaction logic for MainWindow.xaml
-/// </summary>
 public partial class MainWindow : Window
 {
     private readonly MainWindowViewModel _viewModel;
@@ -14,15 +13,17 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        // ViewModel을 App의 ServiceProvider로부터 가져오기
         var app = (App)Application.Current;
-        _viewModel = new ViewModels.MainWindowViewModel(app.ServiceProvider);
+        var api = app.ServiceProvider.GetRequiredService<ApiClient>();
+        var dashboard = app.ServiceProvider.GetRequiredService<IDashboardService>();
+
+        _viewModel = new MainWindowViewModel(api, dashboard);
         DataContext = _viewModel;
     }
 
     private void OnAiSummaryTest_Click(object sender, RoutedEventArgs e)
     {
-        _viewModel.OnAiSummaryTest();
+        MessageBox.Show("AI 요약 기능은 준비 중입니다.", "안내",
+            MessageBoxButton.OK, MessageBoxImage.Information);
     }
 }
-

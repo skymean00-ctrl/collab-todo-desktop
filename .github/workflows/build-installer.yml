@@ -1,0 +1,54 @@
+name: Build Windows Installer
+
+on:
+  push:
+    tags:
+      - 'v*'          # v1.0.0 처럼 태그 푸시 시 자동 실행
+  workflow_dispatch:  # GitHub에서 수동 실행 가능
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: .NET 8 설정
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: WPF 앱 빌드 (Windows x64 단일 파일)
+        run: |
+          dotnet publish CollabTodoDesktop/CollabTodoDesktop.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true
+        shell: pwsh
+
+      - name: Inno Setup 설치
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.4
+        with:
+          path: Installer/setup.iss
+
+      - name: 빌드 결과 확인
+        run: Get-ChildItem -Path dist -Recurse
+        shell: pwsh
+
+      - name: GitHub Release 업로드
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/CollabTodoDesktop-Setup-*.exe
+          generate_release_notes: true
+          body: |
+            ## Collab ToDo Desktop 설치 방법
+
+            1. `CollabTodoDesktop-Setup-*.exe` 다운로드
+            2. 더블클릭하여 설치 진행
+            3. 설치 완료 후 바탕화면 아이콘 클릭
+            4. 로그인: 관리자에게 계정 발급 요청
+
+            **서버**: https://api.skymeanai.com
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

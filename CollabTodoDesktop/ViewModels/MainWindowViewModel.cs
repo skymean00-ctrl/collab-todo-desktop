@@ -2,290 +2,283 @@ using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Input;
 using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
-using CollabTodoDesktop.Configuration;
-using CollabTodoDesktop.Models;
-using CollabTodoDesktop.Repositories;
 using CollabTodoDesktop.Services;
+using CollabTodoDesktop.Views;
 
 namespace CollabTodoDesktop.ViewModels;
 
-/// <summary>
-/// MainWindow의 ViewModel (MVVM 패턴)
-/// Python 버전의 MainWindow 클래스와 동일한 기능
-/// </summary>
 public class MainWindowViewModel : INotifyPropertyChanged
 {
-    private readonly IServiceProvider _serviceProvider;
+    private static readonly TimeSpan[] RetryIntervals =
+    {
+        TimeSpan.FromMinutes(1),
+        TimeSpan.FromMinutes(5),
+        TimeSpan.FromMinutes(15),
+    };
+
+    private readonly ApiClient _api;
+    private readonly IDashboardService _dashboard;
     private readonly DispatcherTimer _syncTimer;
-    private SyncState _syncState;
-    private int? _currentUserId;
+
+    private DateTime? _lastSyncedAt;
+    private int _consecutiveFailures;
+    private DateTime? _nextRetryAt;
+
+    // 바인딩 속성 백킹 필드
     private bool _isConnected;
     private DateTime? _lastSyncTime;
     private string _windowTitle = "Collab To-Do Desktop";
+    private TaskItemViewModel? _selectedTask;
+    private string _statusBarMessage = "준비";
+    private int _unreadNotificationCount;
 
-    public MainWindowViewModel(IServiceProvider serviceProvider)
+    public MainWindowViewModel(ApiClient api, IDashboardService dashboard)
     {
-        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-        _syncState = new SyncState();
+        _api = api;
+        _dashboard = dashboard;
 
-        // 주기적 동기화 타이머 (5초 간격)
-        _syncTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(5)
-        };
+        WindowTitle = $"Collab To-Do Desktop — {_api.CurrentDisplayName}";
+
+        _syncTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
         _syncTimer.Tick += OnSyncTimer;
         _syncTimer.Start();
 
-        // 초기화
-        _ = InitializeAsync();
+        // 앱 시작 즉시 한 번 동기화
+        _ = DoSyncAsync();
     }
+
+    // ── 바인딩 속성 ─────────────────────────────────────────
 
     public string WindowTitle
     {
         get => _windowTitle;
-        set
-        {
-            _windowTitle = value;
-            OnPropertyChanged();
-        }
+        set { _windowTitle = value; OnPropertyChanged(); }
     }
 
     public bool IsConnected
     {
         get => _isConnected;
-        set
-        {
-            _isConnected = value;
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(ConnectionStatus));
-        }
+        set { _isConnected = value; OnPropertyChanged(); OnPropertyChanged(nameof(ConnectionStatus)); }
     }
 
-    public string ConnectionStatus => IsConnected ? "DB: 연결됨" : "DB: 끊김";
+    public string ConnectionStatus => IsConnected ? "● 연결됨" : "● 연결 끊김";
 
     public DateTime? LastSyncTime
     {
         get => _lastSyncTime;
+        set { _lastSyncTime = value; OnPropertyChanged(); OnPropertyChanged(nameof(LastSyncTimeText)); }
+    }
+
+    public string LastSyncTimeText =>
+        LastSyncTime == null ? "마지막 동기화: -" : $"마지막 동기화: {LastSyncTime.Value:HH:mm:ss}";
+
+    public string StatusBarMessage
+    {
+        get => _statusBarMessage;
+        set { _statusBarMessage = value; OnPropertyChanged(); }
+    }
+
+    public int UnreadNotificationCount
+    {
+        get => _unreadNotificationCount;
         set
         {
-            _lastSyncTime = value;
+            _unreadNotificationCount = value;
             OnPropertyChanged();
-            OnPropertyChanged(nameof(LastSyncTimeText));
+            OnPropertyChanged(nameof(NotificationText));
         }
     }
 
-    public string LastSyncTimeText
+    public string NotificationText =>
+        UnreadNotificationCount > 0 ? $"🔔 {UnreadNotificationCount}개" : "";
+
+    public ObservableCollection<TaskItemViewModel> Tasks { get; } = new();
+    public string TaskCountText => Tasks.Count == 0 ? "" : $"({Tasks.Count}개)";
+    public bool HasNoTasks => Tasks.Count == 0;
+
+    public TaskItemViewModel? SelectedTask
     {
-        get
-        {
-            if (LastSyncTime == null)
-                return "마지막 동기화: -";
-            return $"마지막 동기화: {LastSyncTime.Value:yyyy-MM-dd HH:mm:ss} UTC";
-        }
+        get => _selectedTask;
+        set { _selectedTask = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasSelectedTask)); }
     }
+
+    public bool HasSelectedTask => SelectedTask != null;
 
     public ObservableCollection<string> DashboardItems { get; } = new();
 
-    private async System.Threading.Tasks.Task InitializeAsync()
-    {
-        try
-        {
-            await InitializeUserSelectionAsync();
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(
-                $"초기화 중 오류가 발생했습니다: {ex.Message}",
-                "오류",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
-        }
-    }
-
-    private async System.Threading.Tasks.Task InitializeUserSelectionAsync()
-    {
-        var configManager = _serviceProvider.GetRequiredService<ConfigurationManager>();
-        var dbConfig = configManager.LoadDatabaseConfig();
-
-        if (dbConfig == null)
-        {
-            MessageBox.Show(
-                "데이터베이스 설정이 완료되지 않았습니다.\n환경 변수를 확인한 후 프로그램을 다시 시작하세요.",
-                "설정 필요",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
-            return;
-        }
-
-        try
-        {
-            var userRepository = _serviceProvider.GetRequiredService<IUserRepository>();
-            var users = await userRepository.ListActiveUsersAsync();
-
-            if (users.Count == 0)
-            {
-                MessageBox.Show(
-                    "활성 사용자가 없습니다.\n데이터베이스를 확인하세요.",
-                    "사용자 없음",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
-                return;
-            }
-
-            // 사용자 선택 다이얼로그 표시
-            var dialog = new Views.UserSelectionDialog(users);
-            if (dialog.ShowDialog() == true)
-            {
-                var selectedUser = dialog.SelectedUser;
-                if (selectedUser != null)
-                {
-                    _currentUserId = selectedUser.Id;
-                    WindowTitle = $"Collab To-Do Desktop - {selectedUser.DisplayName}";
-                }
-                else
-                {
-                    // 사용자가 취소한 경우 첫 번째 사용자를 기본값으로 사용
-                    _currentUserId = users[0].Id;
-                    WindowTitle = $"Collab To-Do Desktop - {users[0].DisplayName}";
-                }
-            }
-            else
-            {
-                // 취소한 경우 첫 번째 사용자를 기본값으로 사용
-                _currentUserId = users[0].Id;
-                WindowTitle = $"Collab To-Do Desktop - {users[0].DisplayName}";
-            }
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(
-                $"데이터베이스에 연결할 수 없습니다.\n연결 설정을 확인하세요.\n\n오류: {ex.Message}",
-                "연결 실패",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
-        }
-    }
+    // ── 동기화 ──────────────────────────────────────────────
 
     private async void OnSyncTimer(object? sender, EventArgs e)
     {
-        if (_currentUserId == null)
-        {
-            IsConnected = false;
+        if (_nextRetryAt.HasValue && DateTime.UtcNow < _nextRetryAt.Value)
             return;
-        }
 
-        var configManager = _serviceProvider.GetRequiredService<ConfigurationManager>();
-        var dbConfig = configManager.LoadDatabaseConfig();
+        await DoSyncAsync();
+    }
 
-        if (dbConfig == null)
-        {
-            IsConnected = false;
-            return;
-        }
-
+    private async System.Threading.Tasks.Task DoSyncAsync()
+    {
         try
         {
-            var syncService = _serviceProvider.GetRequiredService<ISyncService>();
-            var (result, newState) = await syncService.PerformSyncAsync(_currentUserId.Value, _syncState);
-            
-            _syncState = newState;
+            var result = await _api.SyncAsync(_lastSyncedAt);
+            if (result == null) return;
+
+            _consecutiveFailures = 0;
+            _nextRetryAt = null;
+            _lastSyncedAt = result.ServerTime;
+
             IsConnected = true;
-            LastSyncTime = result.ServerTime;
-            UpdateDashboard(result.ServerTime, result.Tasks);
+            LastSyncTime = result.ServerTime.ToLocalTime();
+            StatusBarMessage = "동기화 완료";
+
+            UpdateTaskList(result.Tasks, DateTime.UtcNow);
+            UpdateDashboard(result.Tasks, DateTime.UtcNow);
+            UnreadNotificationCount = result.Notifications.Count;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // 토큰 만료 → 로그인 창 다시 표시
+            _syncTimer.Stop();
+            _api.Logout();
+            var login = new LoginWindow(_api) { Owner = Application.Current.MainWindow };
+            if (login.ShowDialog() == true)
+            {
+                _lastSyncedAt = null;
+                _syncTimer.Start();
+            }
+            else
+            {
+                Application.Current.Shutdown();
+            }
         }
         catch (Exception ex)
         {
+            _consecutiveFailures++;
             IsConnected = false;
-            MessageBox.Show(
-                $"동기화 중 오류가 발생했습니다: {ex.Message}",
-                "동기화 오류",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+
+            var retryIndex = Math.Min(_consecutiveFailures - 1, RetryIntervals.Length - 1);
+            _nextRetryAt = DateTime.UtcNow + RetryIntervals[retryIndex];
+            var retryMin = (int)RetryIntervals[retryIndex].TotalMinutes;
+
+            StatusBarMessage = $"연결 실패 ({_consecutiveFailures}회) — {retryMin}분 후 재시도";
+            System.Diagnostics.Debug.WriteLine($"[SyncError] {ex.Message}");
         }
     }
 
-    private void UpdateDashboard(DateTime now, System.Collections.Generic.List<Models.Task> tasks)
-    {
-        var dashboardService = _serviceProvider.GetRequiredService<IDashboardService>();
-        var summary = dashboardService.SummarizeTasks(tasks, now);
+    // ── Task 목록 업데이트 ───────────────────────────────────
 
+    private void UpdateTaskList(System.Collections.Generic.List<ApiClient.TaskOut> tasks, DateTime now)
+    {
+        var previousSelectedId = SelectedTask?.Id;
+        Tasks.Clear();
+
+        foreach (var t in tasks)
+        {
+            var status = ParseStatus(t.Status);
+            var model = new Models.Task
+            {
+                Id = t.Id, ProjectId = t.ProjectId, Title = t.Title,
+                Description = t.Description, AuthorId = t.AuthorId,
+                CurrentAssigneeId = t.CurrentAssigneeId, NextAssigneeId = t.NextAssigneeId,
+                Status = status, DueDate = t.DueDate, CompletedAt = t.CompletedAt,
+                CreatedAt = t.CreatedAt, UpdatedAt = t.UpdatedAt,
+            };
+            Tasks.Add(new TaskItemViewModel(model, now));
+        }
+
+        OnPropertyChanged(nameof(TaskCountText));
+        OnPropertyChanged(nameof(HasNoTasks));
+
+        if (previousSelectedId.HasValue)
+            foreach (var item in Tasks)
+                if (item.Id == previousSelectedId.Value) { SelectedTask = item; break; }
+    }
+
+    private void UpdateDashboard(System.Collections.Generic.List<ApiClient.TaskOut> tasks, DateTime now)
+    {
+        // API TaskOut → Models.Task 변환 후 DashboardService에 전달
+        var modelTasks = new System.Collections.Generic.List<Models.Task>();
+        foreach (var t in tasks)
+            modelTasks.Add(new Models.Task
+            {
+                Id = t.Id, ProjectId = t.ProjectId, Title = t.Title,
+                Status = ParseStatus(t.Status), DueDate = t.DueDate,
+            });
+
+        var summary = _dashboard.SummarizeTasks(modelTasks, now);
         DashboardItems.Clear();
         DashboardItems.Add($"전체 작업: {summary.Total}");
-        DashboardItems.Add($"대기(pending): {summary.Pending}");
+        DashboardItems.Add($"대기: {summary.Pending}");
         DashboardItems.Add($"진행 중: {summary.InProgress}");
-        DashboardItems.Add($"검토(review): {summary.Review}");
-        DashboardItems.Add($"보류(on_hold): {summary.OnHold}");
-        DashboardItems.Add($"완료(completed): {summary.Completed}");
-        DashboardItems.Add($"취소(cancelled): {summary.Cancelled}");
+        DashboardItems.Add($"검토: {summary.Review}");
+        DashboardItems.Add($"보류: {summary.OnHold}");
+        DashboardItems.Add($"완료: {summary.Completed}");
+        DashboardItems.Add($"취소: {summary.Cancelled}");
+        DashboardItems.Add("──────────────");
         DashboardItems.Add($"기한 임박(24h): {summary.DueSoon}");
         DashboardItems.Add($"기한 초과: {summary.Overdue}");
     }
 
-    public async void OnAiSummaryTest()
+    private static Models.TaskStatus ParseStatus(string s) => s switch
     {
-        var configManager = _serviceProvider.GetRequiredService<ConfigurationManager>();
-        var aiConfig = configManager.LoadAiServiceConfig();
+        "in_progress" => Models.TaskStatus.InProgress,
+        "review"      => Models.TaskStatus.Review,
+        "completed"   => Models.TaskStatus.Completed,
+        "on_hold"     => Models.TaskStatus.OnHold,
+        "cancelled"   => Models.TaskStatus.Cancelled,
+        _             => Models.TaskStatus.Pending,
+    };
 
-        if (aiConfig == null)
-        {
-            MessageBox.Show(
-                "AI 요약 서비스를 사용하려면 COLLAB_TODO_AI_BASE_URL 환경 변수를 설정해야 합니다.",
-                "AI 설정 필요",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-            return;
-        }
+    // ── Task 액션 ────────────────────────────────────────────
 
-        var sampleText = (
-            "이 작업은 협업 기반 할 일 관리 시스템의 초기 버전을 구현하는 것입니다. " +
-            "Windows 데스크톱 클라이언트를 만들고, NAS에 있는 MySQL 데이터베이스와 연동하며, " +
-            "기본적인 작업 생성, 할당, 완료, 알림 기능을 제공합니다."
-        );
+    public async void OnChangeStatusCommand()
+    {
+        if (SelectedTask == null) return;
+
+        var dialog = new StatusChangeDialog { Owner = Application.Current.MainWindow };
+        if (dialog.ShowDialog() != true || dialog.SelectedStatus == null) return;
 
         try
         {
-            var aiClient = _serviceProvider.GetRequiredService<IAiClientService>();
-            var summary = await aiClient.SummarizeTextAsync(sampleText, "ko");
-
-            if (string.IsNullOrEmpty(summary))
-            {
-                summary = "(요약 결과가 비어 있습니다.)";
-            }
-
-            MessageBox.Show(
-                $"원문:\n{sampleText}\n\n요약:\n{summary}",
-                "AI 요약 결과",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-        }
-        catch (AiSummaryException ex)
-        {
-            MessageBox.Show(
-                $"요약 서비스 호출에 실패했습니다.\n\n원문:\n{sampleText}\n\n오류: {ex.Message}",
-                "AI 요약 실패",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+            await _api.UpdateTaskStatusAsync(SelectedTask.Id, dialog.SelectedStatus);
+            StatusBarMessage = "상태가 변경되었습니다.";
+            _lastSyncedAt = null; // 전체 재동기화
         }
         catch (Exception ex)
         {
-            MessageBox.Show(
-                $"요약 서비스 호출 중 오류가 발생했습니다.\n\n오류: {ex.Message}",
-                "오류",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            MessageBox.Show($"상태 변경 실패: {ex.Message}", "오류",
+                MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
-    public event PropertyChangedEventHandler? PropertyChanged;
-
-    protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+    public async void OnCompleteTaskCommand()
     {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
-}
+        if (SelectedTask == null) return;
 
+        var confirm = MessageBox.Show(
+            "선택한 작업을 완료 처리하시겠습니까?\n(다음 담당자가 있으면 자동으로 전달됩니다)",
+            "완료 확인", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        if (confirm != MessageBoxResult.Yes) return;
+
+        try
+        {
+            await _api.CompleteTaskAsync(SelectedTask.Id);
+            StatusBarMessage = "작업이 완료 처리되었습니다.";
+            _lastSyncedAt = null;
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"완료 처리 실패: {ex.Message}", "오류",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    // ── INotifyPropertyChanged ───────────────────────────────
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+}

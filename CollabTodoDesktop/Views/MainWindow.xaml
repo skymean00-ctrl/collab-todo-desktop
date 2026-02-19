@@ -3,16 +3,12 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:vm="clr-namespace:CollabTodoDesktop.ViewModels"
+        xmlns:views="clr-namespace:CollabTodoDesktop.Views"
         mc:Ignorable="d"
-        Title="{Binding WindowTitle}" 
+        Title="{Binding WindowTitle}"
         Height="640" Width="1024"
         WindowStartupLocation="CenterScreen">
-    <Window.Resources>
-        <Style TargetType="Label">
-            <Setter Property="VerticalAlignment" Value="Center"/>
-        </Style>
-    </Window.Resources>
+
     <DockPanel>
         <!-- 메뉴 -->
         <Menu DockPanel.Dock="Top">
@@ -30,19 +26,31 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                     </Grid>
                 </ItemsPanelTemplate>
             </StatusBar.ItemsPanel>
+
+            <!-- 상태 메시지 -->
             <StatusBarItem Grid.Column="0">
-                <TextBlock Text="애플리케이션이 정상적으로 시작되었습니다."/>
+                <TextBlock Text="{Binding StatusBarMessage}"/>
             </StatusBarItem>
-            <Separator Grid.Column="1"/>
-            <StatusBarItem Grid.Column="2">
+
+            <!-- 알림 뱃지 (텍스트가 없으면 자동으로 안 보임) -->
+            <StatusBarItem Grid.Column="1">
+                <TextBlock Text="{Binding NotificationText}"
+                           Foreground="OrangeRed" FontWeight="Bold"/>
+            </StatusBarItem>
+
+            <Separator Grid.Column="2"/>
+
+            <!-- 연결 상태 + 동기화 시간 -->
+            <StatusBarItem Grid.Column="3">
                 <StackPanel Orientation="Horizontal">
-                    <Label Content="{Binding ConnectionStatus}" Margin="5,0"/>
+                    <TextBlock Text="{Binding ConnectionStatus}" Margin="5,0"/>
                     <Separator VerticalAlignment="Center" Margin="5,0"/>
-                    <Label Content="{Binding LastSyncTimeText}" Margin="5,0"/>
+                    <TextBlock Text="{Binding LastSyncTimeText}" Margin="5,0"/>
                 </StackPanel>
             </StatusBarItem>
         </StatusBar>
@@ -51,28 +59,24 @@
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="220"/>
             </Grid.ColumnDefinitions>
 
-            <!-- 중앙 컨텐츠 -->
-            <Label Grid.Column="0" 
-                   Content="Collab To-Do Desktop" 
-                   HorizontalAlignment="Center" 
-                   VerticalAlignment="Center"
-                   FontSize="24"/>
+            <!-- Task 목록 (중앙) — ViewModel을 그대로 DataContext로 전달 -->
+            <views:TaskListView Grid.Column="0"
+                                DataContext="{Binding}"/>
 
-            <!-- 대시보드 (오른쪽 도크) -->
-            <DockPanel Grid.Column="1" Width="250" Background="WhiteSmoke">
-                <Label DockPanel.Dock="Top" 
-                       Content="내 작업 요약" 
-                       FontWeight="Bold" 
-                       Padding="10,5"
-                       Background="LightGray"/>
-                <ListBox ItemsSource="{Binding DashboardItems}" 
-                         BorderThickness="0"
-                         Padding="10,5"/>
+            <!-- 대시보드 요약 (오른쪽) -->
+            <DockPanel Grid.Column="1" Background="WhiteSmoke">
+                <Border DockPanel.Dock="Top" Background="LightGray"
+                        BorderBrush="#DEE2E6" BorderThickness="1,0,0,1"
+                        Padding="10,6">
+                    <TextBlock Text="내 작업 요약" FontWeight="Bold"/>
+                </Border>
+                <ListBox ItemsSource="{Binding DashboardItems}"
+                         BorderThickness="1,0,0,0" BorderBrush="#DEE2E6"
+                         Padding="8,4"/>
             </DockPanel>
         </Grid>
     </DockPanel>
 </Window>
-
