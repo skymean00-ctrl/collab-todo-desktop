@@ -66,3 +66,7 @@ bld/
 .DS_Store
 Thumbs.db
 
+# Deployment
+.env
+deploy.log
+
