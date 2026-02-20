@@ -243,7 +243,6 @@ class TaskDetailWidget(QWidget):
                 actor_id=self._current_user_id,
                 promised_date=datetime.combine(promised_date, datetime.min.time()),
             )
-            conn.commit()
 
         self.task_updated.emit()
 
@@ -266,7 +265,6 @@ class TaskDetailWidget(QWidget):
                 actor_id=self._current_user_id,
                 new_status=new_status,
             )
-            conn.commit()
 
         self.task_updated.emit()
 
@@ -288,6 +286,5 @@ class TaskDetailWidget(QWidget):
                 task_id=self._task.id,
                 actor_id=self._current_user_id,
             )
-            conn.commit()
 
         self.task_updated.emit()

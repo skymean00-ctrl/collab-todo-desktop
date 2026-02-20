@@ -131,7 +131,6 @@ class AttachmentWidget(QWidget):
                     file_size=file_size,
                     mime_type=mime_type,
                 )
-                conn.commit()
         except DatabaseConnectionError:
             QMessageBox.warning(self, "오류", "DB 연결에 실패했습니다.")
             return
@@ -165,7 +164,6 @@ class AttachmentWidget(QWidget):
         try:
             with db_connection(config) as conn:
                 delete_attachment(conn, att_id)
-                conn.commit()
         except DatabaseConnectionError:
             QMessageBox.warning(self, "오류", "DB 연결에 실패했습니다.")
             return

@@ -147,7 +147,6 @@ class RegisterDialog(QDialog):
                     email=email,
                     position=position,
                 )
-                conn.commit()
 
             QMessageBox.information(
                 self,

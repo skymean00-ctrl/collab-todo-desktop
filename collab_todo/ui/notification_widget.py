@@ -120,7 +120,6 @@ class NotificationWidget(QWidget):
         try:
             with db_connection(config) as conn:
                 mark_all_as_read(conn, self._user_id)
-                conn.commit()
         except DatabaseConnectionError:
             return
 

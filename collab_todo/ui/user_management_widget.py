@@ -176,7 +176,6 @@ class UserManagementWidget(QWidget):
 
         with db_connection(config) as conn:
             activate_user(conn, user.id)
-            conn.commit()
 
         self.refresh()
 
@@ -206,7 +205,6 @@ class UserManagementWidget(QWidget):
 
         with db_connection(config) as conn:
             deactivate_user(conn, user.id)
-            conn.commit()
 
         self.refresh()
 
@@ -241,6 +239,5 @@ class UserManagementWidget(QWidget):
 
         with db_connection(config) as conn:
             deactivate_user(conn, user.id)
-            conn.commit()
 
         self.refresh()
