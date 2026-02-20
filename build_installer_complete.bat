@@ -32,7 +32,7 @@ REM ============================================================
 REM 1단계: 환경 확인
 REM ============================================================
 echo.
-echo [1/5] 환경 확인 중...
+echo [1/6] 환경 확인 중...
 echo.
 
 REM Python 확인
@@ -58,7 +58,7 @@ if not exist ".venv\Scripts\activate.bat" (
 REM ============================================================
 REM 2단계: 가상환경 활성화 및 의존성 설치
 REM ============================================================
-echo [2/5] 가상환경 활성화 및 의존성 설치 중...
+echo [2/6] 가상환경 활성화 및 의존성 설치 중...
 call ".venv\Scripts\activate.bat"
 if errorlevel 1 (
     echo [오류] 가상환경 활성화 실패
@@ -79,7 +79,7 @@ REM ============================================================
 REM 3단계: PyInstaller로 실행 파일 빌드
 REM ============================================================
 echo.
-echo [3/5] PyInstaller로 실행 파일 빌드 중...
+echo [3/6] PyInstaller로 실행 파일 빌드 중...
 echo       (Python 런타임 및 모든 의존성 포함)
 echo.
 
@@ -108,10 +108,35 @@ echo        파일 크기:
 dir "dist\CollabToDoDesktop.exe" | findstr "CollabToDoDesktop.exe"
 
 REM ============================================================
-REM 4단계: Inno Setup으로 설치 프로그램 생성
+REM 4단계: VC++ Redistributable 다운로드 (개발환경 없는 PC 지원)
 REM ============================================================
 echo.
-echo [4/5] Inno Setup으로 설치 프로그램 생성 중...
+echo [4/6] VC++ Redistributable 다운로드 중...
+echo       (개발환경 없는 PC에서 PyQt5 실행에 필수)
+echo.
+
+if not exist "redist" mkdir "redist"
+
+if not exist "redist\vc_redist.x64.exe" (
+    echo VC++ Redistributable 다운로드 중...
+    powershell -Command "Invoke-WebRequest -Uri 'https://aka.ms/vs/17/release/vc_redist.x64.exe' -OutFile 'redist\vc_redist.x64.exe' -UseBasicParsing"
+    if errorlevel 1 (
+        echo [경고] VC++ Redistributable 다운로드 실패
+        echo 수동 다운로드: https://aka.ms/vs/17/release/vc_redist.x64.exe
+        echo redist 폴더에 vc_redist.x64.exe 로 저장하세요.
+        pause
+    ) else (
+        echo [완료] VC++ Redistributable 다운로드 완료
+    )
+) else (
+    echo [스킵] VC++ Redistributable 이미 존재
+)
+
+REM ============================================================
+REM 5단계: Inno Setup으로 설치 프로그램 생성
+REM ============================================================
+echo.
+echo [5/6] Inno Setup으로 설치 프로그램 생성 중...
 echo.
 
 REM Inno Setup 컴파일러 경로 확인
@@ -149,7 +174,7 @@ REM ============================================================
 REM 5단계: 결과 확인
 REM ============================================================
 echo.
-echo [5/5] 빌드 결과 확인 중...
+echo [6/6] 빌드 결과 확인 중...
 echo.
 
 if exist "installer\CollabTodoDesktop-Setup-1.0.0.exe" (
@@ -166,6 +191,7 @@ if exist "installer\CollabTodoDesktop-Setup-1.0.0.exe" (
     echo 이 설치 파일은 다음을 포함합니다:
     echo   - Python 런타임 (사용자 설치 불필요)
     echo   - 모든 Python 라이브러리 (PyQt5, mysql-connector 등)
+    echo   - Microsoft Visual C++ Runtime (자동 설치)
     echo   - 애플리케이션 실행 파일
     echo   - 시작 메뉴 바로가기
     echo   - 제거 프로그램

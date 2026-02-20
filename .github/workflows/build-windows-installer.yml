@@ -48,6 +48,18 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller==6.11.1
 
+      # ===== VC++ Redistributable 다운로드 =====
+      # 개발환경 없는 PC에서 PyQt5, mysql-connector 실행에 필수
+      - name: Download VC++ Redistributable
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path "redist" -Force
+          $vcRedistUrl = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
+          Write-Host "Downloading VC++ Redistributable from $vcRedistUrl"
+          Invoke-WebRequest -Uri $vcRedistUrl -OutFile "redist/vc_redist.x64.exe" -UseBasicParsing
+          $fileSize = (Get-Item "redist/vc_redist.x64.exe").Length
+          Write-Host "Downloaded VC++ Redistributable: $fileSize bytes"
+
       - name: Build standalone executable with PyInstaller
         run: |
           pyinstaller pyinstaller.spec --clean --noconfirm
@@ -125,6 +137,7 @@ jobs:
 
             ### 참고
             - **Python 설치 불필요** - 모든 의존성이 포함된 독립 실행형 설치 파일입니다.
+            - **VC++ Runtime 자동 설치** - 필요한 시스템 런타임이 자동으로 설치됩니다.
             - **추가 프로그램 불필요** - 이 파일 하나만 설치하면 됩니다.
             - Windows 10 이상 권장
           files: |
