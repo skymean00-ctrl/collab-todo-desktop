@@ -73,23 +73,26 @@ def db_connection(
 
     - 블록 내에서 예외가 발생하면 롤백 후 연결을 닫는다.
     - 정상 종료 시 커밋 후 연결을 닫는다.
+    - 연결은 finally 블록에서 반드시 닫힌다.
     """
     conn = create_connection(config)
+    exc_occurred = False
     try:
         yield conn
+    except Exception:
+        exc_occurred = True
+        try:
+            conn.rollback()
+        except mysql.connector.Error:
+            pass
+        raise
+    else:
         try:
             conn.commit()
         except mysql.connector.Error:
-            # 커밋 실패 시에도 연결은 반드시 닫는다.
             conn.rollback()
             raise
-    except Exception:
-        try:
-            conn.rollback()
-        finally:
-            conn.close()
-        raise
-    else:
+    finally:
         conn.close()
 
 

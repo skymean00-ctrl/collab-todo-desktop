@@ -10,19 +10,7 @@ from typing import List, Optional
 from mysql.connector.connection import MySQLConnection
 
 from .models import Notification
-
-
-def _row_to_notification(row: tuple) -> Notification:
-    return Notification(
-        id=row[0],
-        recipient_id=row[1],
-        task_id=row[2],
-        notification_type=row[3],
-        message=row[4],
-        is_read=bool(row[5]),
-        created_at=row[6],
-        read_at=row[7],
-    )
+from .repositories.notification_repo import _row_to_notification
 
 
 def list_unread_notifications(conn: MySQLConnection, user_id: int) -> List[Notification]:

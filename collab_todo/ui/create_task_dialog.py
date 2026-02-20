@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import List, Optional
 
 from PyQt5.QtWidgets import (
@@ -147,7 +148,7 @@ class CreateTaskDialog(QDialog):
         due_date = None
         if self._due_date_check.isChecked():
             qdate = self._due_date_edit.date()
-            due_date = qdate.toPyDate()
+            due_date = datetime.combine(qdate.toPyDate(), datetime.min.time())
 
         is_private = self._private_check.isChecked()
 
