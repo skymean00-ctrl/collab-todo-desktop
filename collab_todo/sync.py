@@ -53,10 +53,11 @@ def perform_sync(
     """
     주어진 사용자에 대해 한 번의 동기화를 수행한다.
 
-    증분 동기화 지원:
-    - last_synced_at이 설정되어 있으면 변경된 Task만 조회 (성능 최적화)
-    - 첫 동기화이거나 last_synced_at이 None이면 전체 목록 조회
-    - 알림은 항상 미확인(not read) 목록만 가져온다.
+    항상 전체 활성 업무 목록을 조회한다.
+    이전에는 last_synced_at 기반 증분 동기화를 사용했으나,
+    완료/취소된 업무가 클라이언트에서 제거되지 않는 문제가 있어
+    전체 목록 조회 방식으로 변경되었다.
+    알림은 항상 미확인(not read) 목록만 가져온다.
     """
     if user_id <= 0:
         raise ValueError("잘못된 사용자 ID 입니다.")
@@ -73,12 +74,12 @@ def perform_sync(
 
     server_time: datetime = row[0]
 
-    # 증분 동기화: last_synced_at이 있으면 변경된 항목만 조회
+    # 전체 활성 업무 목록 조회 (완료/취소 제외)
+    # last_synced_at을 전달하지 않아 항상 전체 목록을 가져온다.
     tasks = list_tasks_for_assignee(
         conn,
         user_id=user_id,
         include_completed=False,
-        last_synced_at=state.last_synced_at,
     )
     notifications = list_unread_notifications(conn, user_id=user_id)
 

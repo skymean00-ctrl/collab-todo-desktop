@@ -56,6 +56,7 @@ class MainWindow(QMainWindow):
         self._user_label: Optional[QLabel] = None
         self._sync_timer: Optional[QTimer] = None
         self._sync_state: SyncState = SyncState(last_synced_at=None)
+        self._sync_error_count: int = 0
 
         self._user_map: dict[int, str] = {}
 
@@ -209,7 +210,6 @@ class MainWindow(QMainWindow):
                     data = dialog.get_task_data()
                     if data is not None:
                         create_task(conn, **data)
-                        conn.commit()
                         self._refresh_task_list()
 
         except DatabaseConnectionError:
@@ -276,16 +276,22 @@ class MainWindow(QMainWindow):
                     conn, user_id=self._current_user_id, state=self._sync_state
                 )
                 self._sync_state = new_state
+                self._sync_error_count = 0
                 self._set_connection_status(True)
                 self._set_last_sync_time(result.server_time)
                 self._update_dashboard(result.server_time, result.tasks)
                 self._task_list.set_tasks(result.tasks, self._user_map)
                 self._notification_widget.set_notifications(result.notifications)
         except DatabaseConnectionError:
+            self._sync_error_count += 1
             self._set_connection_status(False)
         except Exception as exc:
+            self._sync_error_count += 1
             self._set_connection_status(False)
-            QMessageBox.warning(self, "동기화 오류", f"동기화 중 오류가 발생했습니다: {exc}")
+            if self._status_bar is not None:
+                self._status_bar.showMessage(
+                    f"동기화 오류 (연속 {self._sync_error_count}회): {exc}", 10000
+                )
 
     def _update_dashboard(self, now: datetime, tasks) -> None:
         widget: Optional[QListWidget] = getattr(self, "_dashboard_list", None)
