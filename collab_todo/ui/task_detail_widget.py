@@ -228,7 +228,7 @@ class TaskDetailWidget(QWidget):
         promised_date = date_edit.date().toPyDate()
 
         from collab_todo.config import load_db_config
-        from collab_todo.db import db_connection
+        from collab_todo.db import db_connection, DatabaseConnectionError
         from collab_todo.repositories import confirm_task
         from datetime import datetime
 
@@ -236,13 +236,17 @@ class TaskDetailWidget(QWidget):
         if config is None:
             return
 
-        with db_connection(config) as conn:
-            confirm_task(
-                conn,
-                task_id=self._task.id,
-                actor_id=self._current_user_id,
-                promised_date=datetime.combine(promised_date, datetime.min.time()),
-            )
+        try:
+            with db_connection(config) as conn:
+                confirm_task(
+                    conn,
+                    task_id=self._task.id,
+                    actor_id=self._current_user_id,
+                    promised_date=datetime.combine(promised_date, datetime.min.time()),
+                )
+        except DatabaseConnectionError:
+            QMessageBox.warning(self, "오류", "DB 연결에 실패했습니다.")
+            return
 
         self.task_updated.emit()
 
@@ -251,20 +255,24 @@ class TaskDetailWidget(QWidget):
             return
 
         from collab_todo.config import load_db_config
-        from collab_todo.db import db_connection
+        from collab_todo.db import db_connection, DatabaseConnectionError
         from collab_todo.repositories import update_task_status
 
         config = load_db_config()
         if config is None:
             return
 
-        with db_connection(config) as conn:
-            update_task_status(
-                conn,
-                task_id=self._task.id,
-                actor_id=self._current_user_id,
-                new_status=new_status,
-            )
+        try:
+            with db_connection(config) as conn:
+                update_task_status(
+                    conn,
+                    task_id=self._task.id,
+                    actor_id=self._current_user_id,
+                    new_status=new_status,
+                )
+        except DatabaseConnectionError:
+            QMessageBox.warning(self, "오류", "DB 연결에 실패했습니다.")
+            return
 
         self.task_updated.emit()
 
@@ -273,18 +281,22 @@ class TaskDetailWidget(QWidget):
             return
 
         from collab_todo.config import load_db_config
-        from collab_todo.db import db_connection
+        from collab_todo.db import db_connection, DatabaseConnectionError
         from collab_todo.repositories import complete_task
 
         config = load_db_config()
         if config is None:
             return
 
-        with db_connection(config) as conn:
-            complete_task(
-                conn,
-                task_id=self._task.id,
-                actor_id=self._current_user_id,
-            )
+        try:
+            with db_connection(config) as conn:
+                complete_task(
+                    conn,
+                    task_id=self._task.id,
+                    actor_id=self._current_user_id,
+                )
+        except DatabaseConnectionError:
+            QMessageBox.warning(self, "오류", "DB 연결에 실패했습니다.")
+            return
 
         self.task_updated.emit()

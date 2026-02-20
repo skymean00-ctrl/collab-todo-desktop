@@ -167,15 +167,19 @@ class UserManagementWidget(QWidget):
             return
 
         from collab_todo.config import load_db_config
-        from collab_todo.db import db_connection
+        from collab_todo.db import db_connection, DatabaseConnectionError
         from collab_todo.repositories import activate_user
 
         config = load_db_config()
         if config is None:
             return
 
-        with db_connection(config) as conn:
-            activate_user(conn, user.id)
+        try:
+            with db_connection(config) as conn:
+                activate_user(conn, user.id)
+        except DatabaseConnectionError:
+            QMessageBox.warning(self, "오류", "DB 연결에 실패했습니다.")
+            return
 
         self.refresh()
 
@@ -196,15 +200,19 @@ class UserManagementWidget(QWidget):
             return
 
         from collab_todo.config import load_db_config
-        from collab_todo.db import db_connection
+        from collab_todo.db import db_connection, DatabaseConnectionError
         from collab_todo.repositories import deactivate_user
 
         config = load_db_config()
         if config is None:
             return
 
-        with db_connection(config) as conn:
-            deactivate_user(conn, user.id)
+        try:
+            with db_connection(config) as conn:
+                deactivate_user(conn, user.id)
+        except DatabaseConnectionError:
+            QMessageBox.warning(self, "오류", "DB 연결에 실패했습니다.")
+            return
 
         self.refresh()
 
@@ -230,14 +238,18 @@ class UserManagementWidget(QWidget):
             return
 
         from collab_todo.config import load_db_config
-        from collab_todo.db import db_connection
+        from collab_todo.db import db_connection, DatabaseConnectionError
         from collab_todo.repositories import deactivate_user
 
         config = load_db_config()
         if config is None:
             return
 
-        with db_connection(config) as conn:
-            deactivate_user(conn, user.id)
+        try:
+            with db_connection(config) as conn:
+                deactivate_user(conn, user.id)
+        except DatabaseConnectionError:
+            QMessageBox.warning(self, "오류", "DB 연결에 실패했습니다.")
+            return
 
         self.refresh()

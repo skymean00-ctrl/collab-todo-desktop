@@ -21,7 +21,6 @@ from collab_todo.db import db_connection, DatabaseConnectionError
 from collab_todo.sync import SyncState, perform_sync
 from collab_todo.dashboard import summarize_tasks
 from collab_todo.ai_client import AiSummaryConfig, summarize_text, AiSummaryError
-from collab_todo.models import User
 from collab_todo.session import Session
 from collab_todo.ui.login_dialog import LoginDialog
 from collab_todo.ui.register_dialog import RegisterDialog
@@ -30,7 +29,6 @@ from collab_todo.ui.task_list_widget import TaskListWidget
 from collab_todo.ui.task_detail_widget import TaskDetailWidget
 from collab_todo.ui.create_task_dialog import CreateTaskDialog
 from collab_todo.ui.notification_widget import NotificationWidget
-from collab_todo.ui.attachment_widget import AttachmentWidget
 
 
 class MainWindow(QMainWindow):
