@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.database import engine, Base
 from app.models import user, task  # noqa: F401 - 테이블 등록용
-from app.routers import auth, users, tasks, attachments, notifications, categories
+from app.routers import auth, users, tasks, attachments, notifications, categories, admin
 from app.services.scheduler import start_scheduler, stop_scheduler
 
 
@@ -35,6 +35,7 @@ app.include_router(tasks.router)
 app.include_router(attachments.router)
 app.include_router(notifications.router)
 app.include_router(categories.router)
+app.include_router(admin.router)
 
 
 @app.get("/health")

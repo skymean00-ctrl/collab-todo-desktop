@@ -1,14 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import secrets
+from datetime import datetime, timedelta
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
 from app.database import get_db
-from app.models.user import User, Department
+from app.models.user import User, Department, EmailVerificationToken
 from app.utils.auth import hash_password, verify_password, create_access_token, get_current_user
+from app.utils.email import send_verification_email
+from app.config import get_settings
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+settings = get_settings()
 
 
+# ── Schemas ──────────────────────────────────────────────
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
@@ -25,18 +31,63 @@ class TokenResponse(BaseModel):
     email: str
     department: str
     job_title: str
+    is_admin: bool
+    is_verified: bool
 
 
-@router.post("/register", status_code=201)
-def register(req: RegisterRequest, db: Session = Depends(get_db)):
+# ── Helpers ───────────────────────────────────────────────
+def _make_verification_token(db: Session, user_id: int) -> str:
+    # 기존 미사용 토큰 제거
+    db.query(EmailVerificationToken).filter(
+        EmailVerificationToken.user_id == user_id,
+        EmailVerificationToken.used == False,
+    ).delete()
+
+    raw = secrets.token_urlsafe(32)
+    token = EmailVerificationToken(
+        user_id=user_id,
+        token=raw,
+        expires_at=datetime.utcnow() + timedelta(hours=24),
+    )
+    db.add(token)
+    db.flush()
+    return raw
+
+
+def _build_response(user: User, db: Session) -> TokenResponse:
+    access_token = create_access_token({"sub": user.id})
+    dept_name = user.department.name if user.department else ""
+    return TokenResponse(
+        access_token=access_token,
+        user_id=user.id,
+        name=user.name,
+        email=user.email,
+        department=dept_name,
+        job_title=user.job_title or "",
+        is_admin=user.is_admin,
+        is_verified=user.is_verified,
+    )
+
+
+# ── Endpoints ─────────────────────────────────────────────
+@router.post("/register", response_model=TokenResponse, status_code=201)
+async def register(
+    req: RegisterRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
     if db.query(User).filter(User.email == req.email).first():
         raise HTTPException(status_code=400, detail="이미 사용 중인 이메일입니다.")
 
+    # 부서 조회 또는 생성
     dept = db.query(Department).filter(Department.name == req.department_name).first()
     if not dept:
         dept = Department(name=req.department_name)
         db.add(dept)
         db.flush()
+
+    # 첫 번째 가입자는 자동으로 관리자 권한 부여
+    is_first_user = db.query(User).count() == 0
 
     user = User(
         email=req.email,
@@ -44,10 +95,23 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
         name=req.name,
         department_id=dept.id,
         job_title=req.job_title,
+        is_admin=is_first_user,
+        is_verified=False,
     )
     db.add(user)
+    db.flush()
+
+    # 이메일 인증 토큰 생성
+    raw_token = _make_verification_token(db, user.id)
     db.commit()
-    return {"message": "회원가입이 완료되었습니다."}
+    db.refresh(user)
+
+    # 인증 메일 백그라운드 발송
+    verify_url = f"{settings.app_base_url}/#/verify-email/{raw_token}"
+    background_tasks.add_task(send_verification_email, user.email, user.name, verify_url)
+
+    # 가입 즉시 로그인 토큰 반환 (자동 로그인)
+    return _build_response(user, db)
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -55,16 +119,7 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get
     user = db.query(User).filter(User.email == form.username, User.is_active == True).first()
     if not user or not verify_password(form.password, user.password_hash):
         raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다.")
-
-    token = create_access_token({"sub": user.id})
-    return TokenResponse(
-        access_token=token,
-        user_id=user.id,
-        name=user.name,
-        email=user.email,
-        department=user.department.name if user.department else "",
-        job_title=user.job_title or "",
-    )
+    return _build_response(user, db)
 
 
 @router.get("/me")
@@ -75,4 +130,41 @@ def me(current_user: User = Depends(get_current_user)):
         "email": current_user.email,
         "department": current_user.department.name if current_user.department else "",
         "job_title": current_user.job_title,
+        "is_admin": current_user.is_admin,
+        "is_verified": current_user.is_verified,
     }
+
+
+@router.post("/verify-email/{token}")
+def verify_email(token: str, db: Session = Depends(get_db)):
+    record = db.query(EmailVerificationToken).filter(
+        EmailVerificationToken.token == token,
+        EmailVerificationToken.used == False,
+    ).first()
+
+    if not record:
+        raise HTTPException(status_code=400, detail="유효하지 않은 인증 링크입니다.")
+    if record.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="인증 링크가 만료되었습니다. 재발송을 요청해주세요.")
+
+    record.used = True
+    record.user.is_verified = True
+    db.commit()
+    return {"message": "이메일 인증이 완료되었습니다."}
+
+
+@router.post("/resend-verification")
+async def resend_verification(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.is_verified:
+        raise HTTPException(status_code=400, detail="이미 인증된 계정입니다.")
+
+    raw_token = _make_verification_token(db, current_user.id)
+    db.commit()
+
+    verify_url = f"{settings.app_base_url}/#/verify-email/{raw_token}"
+    background_tasks.add_task(send_verification_email, current_user.email, current_user.name, verify_url)
+    return {"message": "인증 메일을 재발송했습니다."}

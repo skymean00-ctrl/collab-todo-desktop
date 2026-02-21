@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     # Server
     app_host: str = "0.0.0.0"
     app_port: int = 8000
+    app_base_url: str = "http://localhost:5173"  # 인증 메일 링크용 (배포 시 실제 주소로 변경)
 
     @property
     def database_url(self) -> str:

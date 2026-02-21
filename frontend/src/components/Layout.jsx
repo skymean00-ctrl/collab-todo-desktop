@@ -2,6 +2,7 @@ import { Outlet, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import useAuthStore from '../store/authStore'
 import api from '../utils/api'
+import VerificationBanner from './VerificationBanner'
 
 export default function Layout() {
   const { user, logout } = useAuthStore()
@@ -12,7 +13,7 @@ export default function Layout() {
 
   useEffect(() => {
     fetchUnread()
-    const interval = setInterval(fetchUnread, 30000) // 30초마다 폴링
+    const interval = setInterval(fetchUnread, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -21,7 +22,6 @@ export default function Layout() {
       const { data } = await api.get('/api/notifications/unread-count')
       const prev = unreadCount
       setUnreadCount(data.count)
-      // 새 알림이 생기면 데스크톱 푸시
       if (data.count > prev && window.electronAPI) {
         const { data: notifs } = await api.get('/api/notifications/')
         const newest = notifs[0]
@@ -56,9 +56,29 @@ export default function Layout() {
       {/* 상단 헤더 */}
       <header className="bg-primary-600 text-white px-6 py-3 flex items-center justify-between shadow z-10">
         <div className="flex items-center gap-3">
-          <span className="font-bold text-lg">CollabTodo</span>
+          <button
+            onClick={() => navigate('/')}
+            className="font-bold text-lg hover:text-primary-100 transition"
+          >
+            CollabTodo
+          </button>
         </div>
         <div className="flex items-center gap-4">
+          {/* 관리자 메뉴 */}
+          {user?.is_admin && (
+            <button
+              onClick={() => navigate('/admin')}
+              className="text-sm text-primary-200 hover:text-white transition flex items-center gap-1"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              사용자 관리
+            </button>
+          )}
+
           {/* 알림 버튼 */}
           <div className="relative">
             <button
@@ -111,6 +131,9 @@ export default function Layout() {
           </button>
         </div>
       </header>
+
+      {/* 이메일 인증 배너 */}
+      <VerificationBanner />
 
       {/* 메인 컨텐츠 */}
       <main className="flex-1 overflow-y-auto">
