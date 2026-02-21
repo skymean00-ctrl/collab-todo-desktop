@@ -97,7 +97,7 @@ export default function TaskFormModal({ onClose, onCreated, parentTaskId = null 
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-          <h2 className="font-bold text-lg text-gray-900 dark:text-gray-100">{parentTaskId ? '자료 요청 등록' : '업무 지시 등록'}</h2>
+          <h2 className="font-bold text-lg text-gray-900 dark:text-gray-100">{parentTaskId ? '자료 요청 등록' : '업무 요청 등록'}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl">✕</button>
         </div>
 
