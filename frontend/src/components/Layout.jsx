@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import useAuthStore from '../store/authStore'
 import api from '../utils/api'
 import VerificationBanner from './VerificationBanner'
+import { toggleDarkMode, isDark } from '../utils/darkMode'
 
 export default function Layout() {
   const { user, logout } = useAuthStore()
@@ -10,6 +11,7 @@ export default function Layout() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [notifications, setNotifications] = useState([])
   const [showNotifPanel, setShowNotifPanel] = useState(false)
+  const [dark, setDark] = useState(() => isDark())
 
   useEffect(() => {
     fetchUnread()
@@ -46,15 +48,20 @@ export default function Layout() {
     }
   }
 
+  function handleToggleDark() {
+    const isDarkNow = toggleDarkMode()
+    setDark(isDarkNow)
+  }
+
   function handleLogout() {
     logout()
     navigate('/login')
   }
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen bg-gray-50 dark:bg-slate-900">
       {/* 상단 헤더 */}
-      <header className="bg-primary-600 text-white px-6 py-3 flex items-center justify-between shadow z-10">
+      <header className="bg-primary-600 text-white px-6 py-3 flex items-center justify-between shadow z-10 flex-shrink-0">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/')}
@@ -79,6 +86,27 @@ export default function Layout() {
             </button>
           )}
 
+          {/* 다크모드 토글 */}
+          <button
+            onClick={handleToggleDark}
+            className="p-2 rounded-full hover:bg-primary-700 transition"
+            title={dark ? '라이트 모드' : '다크 모드'}
+          >
+            {dark ? (
+              /* 해(라이트로 전환) */
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+              </svg>
+            ) : (
+              /* 달(다크로 전환) */
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+            )}
+          </button>
+
           {/* 알림 버튼 */}
           <div className="relative">
             <button
@@ -97,21 +125,21 @@ export default function Layout() {
             </button>
 
             {showNotifPanel && (
-              <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-100 z-50 max-h-96 overflow-y-auto">
-                <div className="p-3 border-b font-semibold text-gray-700">알림</div>
+              <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 z-50 max-h-96 overflow-y-auto">
+                <div className="p-3 border-b border-gray-100 dark:border-gray-700 font-semibold text-gray-700 dark:text-gray-200">알림</div>
                 {notifications.length === 0 ? (
                   <div className="p-4 text-center text-gray-400 text-sm">알림이 없습니다.</div>
                 ) : (
                   notifications.map((n) => (
                     <div
                       key={n.id}
-                      className={`p-3 border-b text-sm cursor-pointer hover:bg-gray-50 ${!n.is_read ? 'bg-blue-50' : ''}`}
+                      className={`p-3 border-b border-gray-100 dark:border-gray-700 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${!n.is_read ? 'bg-blue-50 dark:bg-blue-900/30' : ''}`}
                       onClick={() => {
                         if (n.task_id) navigate(`/tasks/${n.task_id}`)
                         setShowNotifPanel(false)
                       }}
                     >
-                      <p className="text-gray-800">{n.message}</p>
+                      <p className="text-gray-800 dark:text-gray-200">{n.message}</p>
                       <p className="text-gray-400 text-xs mt-1">{new Date(n.created_at).toLocaleString('ko-KR')}</p>
                     </div>
                   ))
@@ -120,10 +148,10 @@ export default function Layout() {
             )}
           </div>
 
-          {/* 사용자 정보 */}
+          {/* 사용자 정보 (직급 제거) */}
           <div className="text-sm">
             <span className="font-medium">{user?.name}</span>
-            <span className="text-primary-200 ml-1 text-xs">{user?.department} · {user?.job_title}</span>
+            <span className="text-primary-200 ml-1 text-xs">{user?.department}</span>
           </div>
 
           <button onClick={handleLogout} className="text-sm text-primary-200 hover:text-white transition">

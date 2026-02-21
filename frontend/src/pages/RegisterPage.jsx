@@ -44,7 +44,6 @@ export default function RegisterPage() {
         department_name: form.department_name,
       })
 
-      // 가입 즉시 자동 로그인
       login(
         {
           id: data.user_id,
@@ -65,17 +64,17 @@ export default function RegisterPage() {
     }
   }
 
-  const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500'
+  const inputCls = 'w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-8">
-      <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900 py-8">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 w-full max-w-sm">
         <h1 className="text-2xl font-bold text-center text-primary-600 mb-2">CollabTodo</h1>
-        <p className="text-center text-gray-500 text-sm mb-6">계정 만들기</p>
+        <p className="text-center text-gray-500 dark:text-gray-400 text-sm mb-6">계정 만들기</p>
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">이름 *</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">이름 *</label>
             <input
               required
               type="text"
@@ -87,7 +86,7 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">회사 이메일 *</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">회사 이메일 *</label>
             <input
               required
               type="email"
@@ -99,7 +98,7 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">부서 *</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">부서 *</label>
             <select
               required
               value={form.department_name}
@@ -114,7 +113,7 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">비밀번호 *</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">비밀번호 *</label>
             <input
               required
               type="password"
@@ -126,7 +125,7 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">비밀번호 확인 *</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">비밀번호 확인 *</label>
             <input
               required
               type="password"
@@ -148,7 +147,7 @@ export default function RegisterPage() {
           </button>
         </form>
 
-        <p className="text-center text-sm text-gray-500 mt-4">
+        <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-4">
           이미 계정이 있으신가요?{' '}
           <Link to="/login" className="text-primary-600 hover:underline">
             로그인

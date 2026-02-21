@@ -13,11 +13,11 @@ const STATUS_FLOW = {
 }
 
 const STATUS_CLS = {
-  pending:     'bg-gray-100 text-gray-600',
-  in_progress: 'bg-blue-100 text-blue-700',
-  review:      'bg-yellow-100 text-yellow-700',
-  approved:    'bg-green-100 text-green-700',
-  rejected:    'bg-red-100 text-red-700',
+  pending:     'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
+  in_progress: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400',
+  review:      'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400',
+  approved:    'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400',
+  rejected:    'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400',
 }
 
 export default function TaskDetailPage() {
@@ -96,27 +96,25 @@ export default function TaskDetailPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      {/* 뒤로가기 */}
-      <button onClick={() => navigate(-1)} className="text-sm text-gray-500 hover:text-gray-700 mb-4 flex items-center gap-1">
+      <button onClick={() => navigate(-1)} className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 mb-4 flex items-center gap-1">
         ← 목록으로
       </button>
 
       <div className="grid grid-cols-3 gap-6">
         {/* 왼쪽: 업무 상세 */}
         <div className="col-span-2 space-y-4">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
             <div className="flex items-start justify-between mb-4">
-              <h1 className="text-xl font-bold text-gray-900">{task.title}</h1>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{task.title}</h1>
               <span className={`text-sm px-3 py-1 rounded-full font-medium ${STATUS_CLS[task.status]}`}>
                 {flow.label}
               </span>
             </div>
 
             {task.content && (
-              <p className="text-sm text-gray-600 mb-4 whitespace-pre-wrap">{task.content}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mb-4 whitespace-pre-wrap">{task.content}</p>
             )}
 
-            {/* 메타 정보 */}
             <div className="grid grid-cols-2 gap-3 text-sm">
               <MetaItem label="지시자" value={task.assigner?.name} />
               <MetaItem label="담당자" value={task.assignee?.name} />
@@ -126,19 +124,18 @@ export default function TaskDetailPage() {
               <MetaItem label="우선순위" value={task.priority} />
             </div>
 
-            {/* 태그 */}
             {task.tags?.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-1">
                 {task.tags.map((t) => (
-                  <span key={t.id} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">#{t.name}</span>
+                  <span key={t.id} className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">#{t.name}</span>
                 ))}
               </div>
             )}
           </div>
 
           {/* 진행률 */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-            <label className="text-sm font-medium text-gray-700 mb-2 block">진행률: {progress}%</label>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">진행률: {progress}%</label>
             <div className="flex items-center gap-3">
               <input
                 type="range"
@@ -155,20 +152,20 @@ export default function TaskDetailPage() {
                 </button>
               )}
             </div>
-            <div className="mt-1.5 bg-gray-200 rounded-full h-2">
+            <div className="mt-1.5 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
               <div className="bg-primary-500 h-2 rounded-full transition-all" style={{ width: `${progress}%` }} />
             </div>
           </div>
 
           {/* 자료요청 서브태스크 */}
           {(task.subtasks?.length > 0 || isAssignee) && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-gray-700 text-sm">자료요청</h3>
+                <h3 className="font-semibold text-gray-700 dark:text-gray-300 text-sm">자료요청</h3>
                 {isAssignee && (
                   <button
                     onClick={() => setShowSubtaskModal(true)}
-                    className="text-xs text-primary-600 hover:text-primary-800 font-medium"
+                    className="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200 font-medium"
                   >
                     + 자료 요청 추가
                   </button>
@@ -181,10 +178,10 @@ export default function TaskDetailPage() {
                   {task.subtasks.map((s) => (
                     <div
                       key={s.id}
-                      className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100"
+                      className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                       onClick={() => navigate(`/tasks/${s.id}`)}
                     >
-                      <span className="text-sm text-gray-700">{s.title}</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-200">{s.title}</span>
                       <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_CLS[s.status]}`}>
                         {STATUS_FLOW[s.status]?.label || s.status}
                       </span>
@@ -196,10 +193,10 @@ export default function TaskDetailPage() {
           )}
 
           {/* 첨부파일 */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-700 text-sm">첨부파일</h3>
-              <label className="text-xs text-primary-600 hover:text-primary-800 font-medium cursor-pointer">
+              <h3 className="font-semibold text-gray-700 dark:text-gray-300 text-sm">첨부파일</h3>
+              <label className="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200 font-medium cursor-pointer">
                 {uploading ? '업로드 중...' : '+ 파일 첨부'}
                 <input type="file" className="hidden" onChange={handleFileUpload} disabled={uploading} />
               </label>
@@ -209,14 +206,14 @@ export default function TaskDetailPage() {
             ) : (
               <div className="space-y-1">
                 {task.attachments.map((a) => (
-                  <div key={a.id} className="flex items-center justify-between py-1.5 px-3 bg-gray-50 rounded-lg">
+                  <div key={a.id} className="flex items-center justify-between py-1.5 px-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     <div>
-                      <span className="text-sm text-gray-700">{a.filename}</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-200">{a.filename}</span>
                       <span className="text-xs text-gray-400 ml-2">{formatSize(a.file_size)}</span>
                     </div>
                     <button
                       onClick={() => downloadFile(a)}
-                      className="text-xs text-primary-600 hover:text-primary-800 font-medium"
+                      className="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200 font-medium"
                     >
                       다운로드
                     </button>
@@ -229,16 +226,15 @@ export default function TaskDetailPage() {
 
         {/* 오른쪽: 상태 변경 + 이력 */}
         <div className="space-y-4">
-          {/* 상태 변경 */}
           {canChangeStatus && flow.next.length > 0 && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-              <h3 className="font-semibold text-gray-700 text-sm mb-3">상태 변경</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+              <h3 className="font-semibold text-gray-700 dark:text-gray-300 text-sm mb-3">상태 변경</h3>
               <textarea
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 placeholder="코멘트 (선택사항)"
                 rows={2}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               />
               <div className="space-y-2">
                 {flow.next.map((n) => (
@@ -247,10 +243,10 @@ export default function TaskDetailPage() {
                     onClick={() => changeStatus(n.value)}
                     className={`w-full py-2 rounded-lg text-sm font-medium transition ${
                       n.value === 'rejected'
-                        ? 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
+                        ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 border border-red-200 dark:border-red-800'
                         : n.value === 'approved'
-                        ? 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
-                        : 'bg-primary-50 text-primary-700 hover:bg-primary-100 border border-primary-200'
+                        ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/50 border border-green-200 dark:border-green-800'
+                        : 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-900/50 border border-primary-200 dark:border-primary-800'
                     }`}
                   >
                     {n.label}
@@ -261,18 +257,18 @@ export default function TaskDetailPage() {
           )}
 
           {/* 이력 로그 */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-            <h3 className="font-semibold text-gray-700 text-sm mb-3">이력</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+            <h3 className="font-semibold text-gray-700 dark:text-gray-300 text-sm mb-3">이력</h3>
             {logs.length === 0 ? (
               <p className="text-xs text-gray-400">이력이 없습니다.</p>
             ) : (
               <div className="space-y-2">
                 {logs.map((log) => (
-                  <div key={log.id} className="text-xs border-l-2 border-gray-200 pl-3 py-1">
-                    <p className="text-gray-700 font-medium">{log.user?.name}</p>
-                    <p className="text-gray-500">{formatAction(log)}</p>
-                    {log.comment && <p className="text-gray-600 mt-0.5 italic">"{log.comment}"</p>}
-                    <p className="text-gray-400 mt-0.5">{new Date(log.created_at).toLocaleString('ko-KR')}</p>
+                  <div key={log.id} className="text-xs border-l-2 border-gray-200 dark:border-gray-600 pl-3 py-1">
+                    <p className="text-gray-700 dark:text-gray-200 font-medium">{log.user?.name}</p>
+                    <p className="text-gray-500 dark:text-gray-400">{formatAction(log)}</p>
+                    {log.comment && <p className="text-gray-600 dark:text-gray-300 mt-0.5 italic">"{log.comment}"</p>}
+                    <p className="text-gray-400 dark:text-gray-500 mt-0.5">{new Date(log.created_at).toLocaleString('ko-KR')}</p>
                   </div>
                 ))}
               </div>
@@ -295,8 +291,8 @@ export default function TaskDetailPage() {
 function MetaItem({ label, value }) {
   return (
     <div>
-      <span className="text-gray-400 text-xs">{label}</span>
-      <p className="text-gray-700 font-medium">{value}</p>
+      <span className="text-gray-400 dark:text-gray-500 text-xs">{label}</span>
+      <p className="text-gray-700 dark:text-gray-200 font-medium">{value}</p>
     </div>
   )
 }
