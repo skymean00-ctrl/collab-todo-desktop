@@ -24,6 +24,15 @@ const useAuthStore = create((set) => ({
       return { user: updated }
     })
   },
+
+  // 프로필 변경 후 로컬 상태 업데이트
+  updateProfile: (patch) => {
+    set((state) => {
+      const updated = { ...state.user, ...patch }
+      localStorage.setItem('user', JSON.stringify(updated))
+      return { user: updated }
+    })
+  },
 }))
 
 export default useAuthStore

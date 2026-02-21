@@ -26,10 +26,17 @@ export default function TaskDetailPage() {
   const { user } = useAuthStore()
   const [task, setTask] = useState(null)
   const [logs, setLogs] = useState([])
-  const [comment, setComment] = useState('')
+  const [statusComment, setStatusComment] = useState('')
+  const [newComment, setNewComment] = useState('')
   const [progress, setProgress] = useState(0)
   const [showSubtaskModal, setShowSubtaskModal] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [cloning, setCloning] = useState(false)
+
+  // 담당자 변경 UI
+  const [showReassign, setShowReassign] = useState(false)
+  const [users, setUsers] = useState([])
+  const [newAssigneeId, setNewAssigneeId] = useState('')
 
   useEffect(() => {
     loadTask()
@@ -48,8 +55,12 @@ export default function TaskDetailPage() {
   }
 
   async function changeStatus(newStatus) {
-    await api.post(`/api/tasks/${taskId}/status`, { status: newStatus, comment: comment || null })
-    setComment('')
+    if (newStatus === 'rejected' && !statusComment.trim()) {
+      alert('반려 시 코멘트는 필수입니다.')
+      return
+    }
+    await api.post(`/api/tasks/${taskId}/status`, { status: newStatus, comment: statusComment || null })
+    setStatusComment('')
     loadTask()
     loadLogs()
   }
@@ -57,6 +68,13 @@ export default function TaskDetailPage() {
   async function updateProgress() {
     await api.patch(`/api/tasks/${taskId}`, { progress })
     loadTask()
+  }
+
+  async function submitComment() {
+    if (!newComment.trim()) return
+    await api.post(`/api/tasks/${taskId}/comment`, { comment: newComment })
+    setNewComment('')
+    loadLogs()
   }
 
   async function handleFileUpload(e) {
@@ -77,11 +95,8 @@ export default function TaskDetailPage() {
     const token = localStorage.getItem('access_token')
     if (window.electronAPI) {
       const result = await window.electronAPI.downloadFile({ url, filename: attachment.filename, token })
-      if (result?.success) {
-        alert(`저장 완료: ${result.filePath}`)
-      }
+      if (result?.success) alert(`저장 완료: ${result.filePath}`)
     } else {
-      // 브라우저: Authorization 헤더와 함께 fetch → Blob URL로 다운로드
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
       if (!res.ok) { alert('다운로드에 실패했습니다.'); return }
       const blob = await res.blob()
@@ -91,6 +106,36 @@ export default function TaskDetailPage() {
       a.download = attachment.filename
       a.click()
       URL.revokeObjectURL(blobUrl)
+    }
+  }
+
+  async function openReassign() {
+    if (!showReassign) {
+      const { data } = await api.get('/api/users/')
+      setUsers(data)
+      setNewAssigneeId(task.assignee?.id || '')
+    }
+    setShowReassign((v) => !v)
+  }
+
+  async function submitReassign() {
+    if (!newAssigneeId || parseInt(newAssigneeId) === task.assignee?.id) {
+      setShowReassign(false)
+      return
+    }
+    await api.patch(`/api/tasks/${taskId}`, { assignee_id: parseInt(newAssigneeId) })
+    setShowReassign(false)
+    loadTask()
+    loadLogs()
+  }
+
+  async function handleClone() {
+    setCloning(true)
+    try {
+      const { data } = await api.post(`/api/tasks/${taskId}/clone`)
+      if (data.task_id) navigate(`/tasks/${data.task_id}`)
+    } finally {
+      setCloning(false)
     }
   }
 
@@ -105,9 +150,54 @@ export default function TaskDetailPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <button onClick={() => navigate(-1)} className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 mb-4 flex items-center gap-1">
-        ← 목록으로
-      </button>
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={() => navigate(-1)} className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center gap-1">
+          ← 목록으로
+        </button>
+        <div className="flex items-center gap-2">
+          {/* 업무 복사 버튼 */}
+          <button
+            onClick={handleClone}
+            disabled={cloning}
+            className="text-xs border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+          >
+            {cloning ? '복사 중...' : '업무 복사'}
+          </button>
+          {/* 담당자 변경 버튼 (지시자만) */}
+          {isAssigner && (
+            <button
+              onClick={openReassign}
+              className="text-xs border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              담당자 변경
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 담당자 변경 패널 */}
+      {showReassign && isAssigner && (
+        <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 flex items-center gap-3">
+          <span className="text-sm text-gray-700 dark:text-gray-200 font-medium">새 담당자</span>
+          <select
+            value={newAssigneeId}
+            onChange={(e) => setNewAssigneeId(e.target.value)}
+            className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="">담당자 선택</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>{u.name} ({u.department})</option>
+            ))}
+          </select>
+          <button
+            onClick={submitReassign}
+            className="bg-primary-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-primary-700"
+          >
+            변경
+          </button>
+          <button onClick={() => setShowReassign(false)} className="text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">취소</button>
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-6">
         {/* 왼쪽: 업무 상세 */}
@@ -231,6 +321,45 @@ export default function TaskDetailPage() {
               </div>
             )}
           </div>
+
+          {/* 댓글 */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+            <h3 className="font-semibold text-gray-700 dark:text-gray-300 text-sm mb-3">댓글</h3>
+            <div className="space-y-2 mb-3">
+              {logs.filter((l) => l.action === 'comment').length === 0 ? (
+                <p className="text-xs text-gray-400">등록된 댓글이 없습니다.</p>
+              ) : (
+                logs
+                  .filter((l) => l.action === 'comment')
+                  .map((l) => (
+                    <div key={l.id} className="bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-2">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-medium text-gray-700 dark:text-gray-200">{l.user?.name}</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">{new Date(l.created_at).toLocaleString('ko-KR')}</span>
+                      </div>
+                      <p className="text-sm text-gray-700 dark:text-gray-200">{l.comment}</p>
+                    </div>
+                  ))
+              )}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && submitComment()}
+                placeholder="댓글 입력 (Enter)"
+                className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+              <button
+                onClick={submitComment}
+                disabled={!newComment.trim()}
+                className="bg-primary-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-primary-700 disabled:opacity-40"
+              >
+                등록
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* 오른쪽: 상태 변경 + 이력 */}
@@ -239,9 +368,9 @@ export default function TaskDetailPage() {
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
               <h3 className="font-semibold text-gray-700 dark:text-gray-300 text-sm mb-3">상태 변경</h3>
               <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="코멘트 (선택사항)"
+                value={statusComment}
+                onChange={(e) => setStatusComment(e.target.value)}
+                placeholder={flow.next.some((n) => n.value === 'rejected') ? '코멘트 (반려 시 필수)' : '코멘트 (선택사항)'}
                 rows={2}
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               />
@@ -268,18 +397,20 @@ export default function TaskDetailPage() {
           {/* 이력 로그 */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
             <h3 className="font-semibold text-gray-700 dark:text-gray-300 text-sm mb-3">이력</h3>
-            {logs.length === 0 ? (
+            {logs.filter((l) => l.action !== 'comment').length === 0 ? (
               <p className="text-xs text-gray-400">이력이 없습니다.</p>
             ) : (
               <div className="space-y-2">
-                {logs.map((log) => (
-                  <div key={log.id} className="text-xs border-l-2 border-gray-200 dark:border-gray-600 pl-3 py-1">
-                    <p className="text-gray-700 dark:text-gray-200 font-medium">{log.user?.name}</p>
-                    <p className="text-gray-500 dark:text-gray-400">{formatAction(log)}</p>
-                    {log.comment && <p className="text-gray-600 dark:text-gray-300 mt-0.5 italic">"{log.comment}"</p>}
-                    <p className="text-gray-400 dark:text-gray-500 mt-0.5">{new Date(log.created_at).toLocaleString('ko-KR')}</p>
-                  </div>
-                ))}
+                {logs
+                  .filter((l) => l.action !== 'comment')
+                  .map((log) => (
+                    <div key={log.id} className="text-xs border-l-2 border-gray-200 dark:border-gray-600 pl-3 py-1">
+                      <p className="text-gray-700 dark:text-gray-200 font-medium">{log.user?.name}</p>
+                      <p className="text-gray-500 dark:text-gray-400">{formatAction(log)}</p>
+                      {log.comment && <p className="text-gray-600 dark:text-gray-300 mt-0.5 italic">"{log.comment}"</p>}
+                      <p className="text-gray-400 dark:text-gray-500 mt-0.5">{new Date(log.created_at).toLocaleString('ko-KR')}</p>
+                    </div>
+                  ))}
               </div>
             )}
           </div>
@@ -318,6 +449,7 @@ function formatAction(log) {
     created: '업무 생성',
     updated: '업무 수정',
     status_changed: `상태 변경: ${log.old_value} → ${log.new_value}`,
+    reassigned: `담당자 변경`,
   }
   return map[log.action] || log.action
 }

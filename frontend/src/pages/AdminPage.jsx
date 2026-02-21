@@ -34,6 +34,11 @@ export default function AdminPage() {
     loadUsers()
   }
 
+  async function handleActivate(u) {
+    await api.patch(`/api/admin/users/${u.id}/activate`)
+    loadUsers()
+  }
+
   async function handleToggleAdmin(u) {
     await api.patch(`/api/admin/users/${u.id}/toggle-admin`)
     loadUsers()
@@ -100,21 +105,32 @@ export default function AdminPage() {
                     {u.created_at ? new Date(u.created_at).toLocaleDateString('ko-KR') : '-'}
                   </td>
                   <td className="py-3 px-4">
-                    {u.id !== user.id && u.is_active && (
+                    {u.id !== user.id && (
                       <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => handleToggleAdmin(u)}
-                          className="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200 font-medium"
-                        >
-                          {u.is_admin ? '관리자 해제' : '관리자 지정'}
-                        </button>
-                        <span className="text-gray-200 dark:text-gray-600">|</span>
-                        <button
-                          onClick={() => setConfirmDelete(u)}
-                          className="text-xs text-red-500 hover:text-red-700 font-medium"
-                        >
-                          삭제
-                        </button>
+                        {u.is_active ? (
+                          <>
+                            <button
+                              onClick={() => handleToggleAdmin(u)}
+                              className="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200 font-medium"
+                            >
+                              {u.is_admin ? '관리자 해제' : '관리자 지정'}
+                            </button>
+                            <span className="text-gray-200 dark:text-gray-600">|</span>
+                            <button
+                              onClick={() => setConfirmDelete(u)}
+                              className="text-xs text-red-500 hover:text-red-700 font-medium"
+                            >
+                              비활성화
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => handleActivate(u)}
+                            className="text-xs text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200 font-medium"
+                          >
+                            재활성화
+                          </button>
+                        )}
                       </div>
                     )}
                   </td>

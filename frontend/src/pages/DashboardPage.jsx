@@ -18,12 +18,34 @@ const STATUS_FILTERS = [
   { value: 'rejected', label: '반려' },
 ]
 
+const PRIORITY_FILTERS = [
+  { value: '', label: '전체' },
+  { value: 'urgent', label: '긴급' },
+  { value: 'high', label: '높음' },
+  { value: 'normal', label: '보통' },
+  { value: 'low', label: '낮음' },
+]
+
+const STATUS_LABELS = {
+  pending: '대기', in_progress: '진행중', review: '검토', approved: '완료', rejected: '반려',
+}
+const STATUS_COLORS = {
+  pending: 'bg-gray-400', in_progress: 'bg-blue-400', review: 'bg-yellow-400',
+  approved: 'bg-green-500', rejected: 'bg-red-400',
+}
+
+const PAGE_SIZE = 20
+
 export default function DashboardPage() {
   const [summary, setSummary] = useState(null)
   const [tasks, setTasks] = useState({})
   const [activeSection, setActiveSection] = useState('assigned_to_me')
   const [statusFilter, setStatusFilter] = useState('')
+  const [priorityFilter, setPriorityFilter] = useState('')
   const [search, setSearch] = useState('')
+  const [dueDateFrom, setDueDateFrom] = useState('')
+  const [dueDateTo, setDueDateTo] = useState('')
+  const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -32,53 +54,121 @@ export default function DashboardPage() {
   }, [])
 
   useEffect(() => {
-    fetchTasks(activeSection)
-  }, [activeSection, statusFilter])
+    setPage(1)
+  }, [activeSection, statusFilter, priorityFilter, dueDateFrom, dueDateTo])
+
+  useEffect(() => {
+    fetchTasks(activeSection, page)
+  }, [activeSection, statusFilter, priorityFilter, dueDateFrom, dueDateTo, page])
 
   async function fetchSummary() {
     const { data } = await api.get('/api/tasks/dashboard')
     setSummary(data)
   }
 
-  const fetchTasks = useCallback(async (section) => {
+  const fetchTasks = useCallback(async (section, p = 1) => {
     setLoading(true)
     try {
-      const params = new URLSearchParams({ section })
+      const params = new URLSearchParams({ section, page: p, page_size: PAGE_SIZE })
       if (statusFilter) params.append('status', statusFilter)
+      if (priorityFilter) params.append('priority', priorityFilter)
       if (search) params.append('search', search)
+      if (dueDateFrom) params.append('due_date_from', dueDateFrom)
+      if (dueDateTo) params.append('due_date_to', dueDateTo)
       const { data } = await api.get(`/api/tasks/?${params}`)
       setTasks((prev) => ({ ...prev, [section]: data }))
     } finally {
       setLoading(false)
     }
-  }, [statusFilter, search])
+  }, [statusFilter, priorityFilter, search, dueDateFrom, dueDateTo])
 
   function handleSearch(e) {
     e.preventDefault()
-    fetchTasks(activeSection)
+    setPage(1)
+    fetchTasks(activeSection, 1)
   }
 
   function onTaskCreated() {
     fetchSummary()
-    fetchTasks(activeSection)
+    fetchTasks(activeSection, page)
   }
 
-  const currentTasks = tasks[activeSection] || []
+  function exportCSV() {
+    const items = tasks[activeSection]?.items || []
+    if (!items.length) return
+    const headers = ['ID', '제목', '지시자', '담당자', '우선순위', '상태', '진행률', '마감일', '생성일']
+    const rows = items.map((t) => [
+      t.id,
+      `"${(t.title || '').replace(/"/g, '""')}"`,
+      t.assigner?.name || '',
+      t.assignee?.name || '',
+      t.priority || '',
+      t.status || '',
+      t.progress,
+      t.due_date || '',
+      t.created_at ? new Date(t.created_at).toLocaleDateString('ko-KR') : '',
+    ])
+    const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `tasks_${activeSection}_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const currentData = tasks[activeSection] || { items: [], total: 0, page: 1, page_size: PAGE_SIZE }
+  const currentTasks = currentData.items || []
+  const totalPages = Math.ceil((currentData.total || 0) / PAGE_SIZE)
   const currentSection = SECTIONS.find((s) => s.key === activeSection)
+
+  // 상태 분포 계산 (내 업무 기준)
+  const breakdown = summary?.status_breakdown || {}
+  const breakdownTotal = Object.values(breakdown).reduce((a, b) => a + b, 0) || 1
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* 요약 카드 */}
       {summary && (
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          <SummaryCard label="내 전체 업무" value={summary.total} color="text-primary-600" bg="bg-primary-50 dark:bg-primary-900/30" />
-          <SummaryCard label="긴급 업무" value={summary.urgent} color="text-red-600 dark:text-red-400" bg="bg-red-50 dark:bg-red-900/30" />
-          <SummaryCard label="마감 임박 (3일)" value={summary.due_soon} color="text-orange-600 dark:text-orange-400" bg="bg-orange-50 dark:bg-orange-900/30" />
-          <SummaryCard label="반려된 업무" value={summary.rejected} color="text-gray-600 dark:text-gray-300" bg="bg-gray-100 dark:bg-gray-700" />
+        <div className="mb-6 space-y-3">
+          <div className="grid grid-cols-4 gap-4">
+            <SummaryCard label="내 전체 업무" value={summary.total} color="text-primary-600" bg="bg-primary-50 dark:bg-primary-900/30" />
+            <SummaryCard label="긴급 업무" value={summary.urgent} color="text-red-600 dark:text-red-400" bg="bg-red-50 dark:bg-red-900/30" />
+            <SummaryCard label="마감 임박 (3일)" value={summary.due_soon} color="text-orange-600 dark:text-orange-400" bg="bg-orange-50 dark:bg-orange-900/30" />
+            <SummaryCard label="반려된 업무" value={summary.rejected} color="text-gray-600 dark:text-gray-300" bg="bg-gray-100 dark:bg-gray-700" />
+          </div>
+
+          {/* 상태 분포 바 */}
+          {breakdownTotal > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-medium">내 업무 상태 분포</p>
+              <div className="flex rounded-full overflow-hidden h-3">
+                {Object.entries(breakdown).map(([status, count]) =>
+                  count > 0 ? (
+                    <div
+                      key={status}
+                      className={`${STATUS_COLORS[status]} transition-all`}
+                      style={{ width: `${(count / breakdownTotal) * 100}%` }}
+                      title={`${STATUS_LABELS[status]}: ${count}`}
+                    />
+                  ) : null
+                )}
+              </div>
+              <div className="flex gap-4 mt-2 flex-wrap">
+                {Object.entries(breakdown).map(([status, count]) => (
+                  <span key={status} className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                    <span className={`w-2 h-2 rounded-full ${STATUS_COLORS[status]}`} />
+                    {STATUS_LABELS[status]} {count}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* 섹션 탭 + 업무 등록 버튼 */}
+      {/* 섹션 탭 + 버튼 */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex gap-1 bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
           {SECTIONS.map((s) => (
@@ -94,49 +184,111 @@ export default function DashboardPage() {
               {s.label}
               {tasks[s.key] && (
                 <span className="ml-1.5 text-xs bg-gray-200 dark:bg-gray-500 text-gray-600 dark:text-gray-200 rounded-full px-1.5">
-                  {tasks[s.key].length}
+                  {tasks[s.key].total ?? tasks[s.key].items?.length ?? 0}
                 </span>
               )}
             </button>
           ))}
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="bg-primary-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-primary-700 transition flex items-center gap-1"
-        >
-          + 업무 등록
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={exportCSV}
+            title="CSV 내보내기"
+            className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-2 rounded-xl text-sm hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center gap-1"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            CSV
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="bg-primary-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-primary-700 transition flex items-center gap-1"
+          >
+            + 업무 등록
+          </button>
+        </div>
       </div>
 
-      {/* 필터 + 검색 */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex gap-1">
-          {STATUS_FILTERS.map((f) => (
-            <button
-              key={f.value}
-              onClick={() => setStatusFilter(f.value)}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition ${
-                statusFilter === f.value
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
+      {/* 필터 영역 */}
+      <div className="space-y-2 mb-4">
+        {/* 상태 필터 */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-400 dark:text-gray-500 w-12">상태</span>
+          <div className="flex gap-1 flex-wrap">
+            {STATUS_FILTERS.map((f) => (
+              <button
+                key={f.value}
+                onClick={() => setStatusFilter(f.value)}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition ${
+                  statusFilter === f.value
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <form onSubmit={handleSearch} className="ml-auto flex gap-2">
+
+        {/* 우선순위 필터 */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-400 dark:text-gray-500 w-12">우선순위</span>
+          <div className="flex gap-1 flex-wrap">
+            {PRIORITY_FILTERS.map((f) => (
+              <button
+                key={f.value}
+                onClick={() => setPriorityFilter(f.value)}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition ${
+                  priorityFilter === f.value
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 날짜 범위 + 검색 */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-400 dark:text-gray-500 w-12">마감일</span>
           <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="제목 검색..."
-            className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-48 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            type="date"
+            value={dueDateFrom}
+            onChange={(e) => setDueDateFrom(e.target.value)}
+            className="border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
           />
-          <button type="submit" className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-600">
-            검색
-          </button>
-        </form>
+          <span className="text-gray-400 text-xs">~</span>
+          <input
+            type="date"
+            value={dueDateTo}
+            onChange={(e) => setDueDateTo(e.target.value)}
+            className="border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          />
+          {(dueDateFrom || dueDateTo) && (
+            <button
+              onClick={() => { setDueDateFrom(''); setDueDateTo('') }}
+              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            >
+              초기화
+            </button>
+          )}
+          <form onSubmit={handleSearch} className="ml-auto flex gap-2">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="제목 검색..."
+              className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-48 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            />
+            <button type="submit" className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-600">
+              검색
+            </button>
+          </form>
+        </div>
       </div>
 
       {/* 업무 테이블 */}
@@ -171,6 +323,53 @@ export default function DashboardPage() {
           </table>
         )}
       </div>
+
+      {/* 페이지네이션 */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-4">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            className="px-3 py-1.5 rounded-lg text-sm border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            이전
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1)
+            .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+            .reduce((acc, p, idx, arr) => {
+              if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...')
+              acc.push(p)
+              return acc
+            }, [])
+            .map((p, i) =>
+              p === '...' ? (
+                <span key={`ellipsis-${i}`} className="px-2 text-gray-400">...</span>
+              ) : (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={`px-3 py-1.5 rounded-lg text-sm border transition ${
+                    page === p
+                      ? 'bg-primary-600 text-white border-primary-600'
+                      : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  {p}
+                </button>
+              )
+            )}
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+            className="px-3 py-1.5 rounded-lg text-sm border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            다음
+          </button>
+          <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
+            {page} / {totalPages} 페이지 (총 {currentData.total}건)
+          </span>
+        </div>
+      )}
 
       {showModal && (
         <TaskFormModal

@@ -53,6 +53,18 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User 
     return {"message": f"{user.name} 계정이 비활성화되었습니다."}
 
 
+@router.patch("/users/{user_id}/activate")
+def activate_user(user_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+    if user.is_active:
+        raise HTTPException(status_code=400, detail="이미 활성화된 계정입니다.")
+    user.is_active = True
+    db.commit()
+    return {"message": f"{user.name} 계정이 활성화되었습니다."}
+
+
 @router.patch("/users/{user_id}/toggle-admin")
 def toggle_admin(user_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     if user_id == current_user.id:

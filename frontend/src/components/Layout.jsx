@@ -1,17 +1,21 @@
 import { Outlet, useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import useAuthStore from '../store/authStore'
 import api from '../utils/api'
 import VerificationBanner from './VerificationBanner'
 import { toggleDarkMode, isDark } from '../utils/darkMode'
 
 export default function Layout() {
-  const { user, logout } = useAuthStore()
+  const { user, logout, updateProfile } = useAuthStore()
   const navigate = useNavigate()
   const [unreadCount, setUnreadCount] = useState(0)
   const [notifications, setNotifications] = useState([])
   const [showNotifPanel, setShowNotifPanel] = useState(false)
   const [dark, setDark] = useState(() => isDark())
+  const [showUserMenu, setShowUserMenu] = useState(false)
+  const [showProfileModal, setShowProfileModal] = useState(false)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const userMenuRef = useRef(null)
 
   useEffect(() => {
     fetchUnread()
@@ -19,33 +23,46 @@ export default function Layout() {
     return () => clearInterval(interval)
   }, [])
 
+  useEffect(() => {
+    function handleClick(e) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setShowUserMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
   async function fetchUnread() {
     try {
       const { data } = await api.get('/api/notifications/unread-count')
-      const prev = unreadCount
       setUnreadCount(data.count)
-      if (data.count > prev && window.electronAPI) {
-        const { data: notifs } = await api.get('/api/notifications/')
-        const newest = notifs[0]
-        if (newest && !newest.is_read) {
-          window.electronAPI.showNotification({
-            title: 'CollabTodo 알림',
-            body: newest.message,
-            taskId: newest.task_id,
-          })
-        }
-      }
     } catch {}
   }
 
   async function openNotifications() {
+    const isOpening = !showNotifPanel
     setShowNotifPanel((v) => !v)
-    const { data } = await api.get('/api/notifications/')
-    setNotifications(data)
-    if (unreadCount > 0) {
-      await api.post('/api/notifications/read-all')
-      setUnreadCount(0)
+    if (isOpening) {
+      const { data } = await api.get('/api/notifications/')
+      setNotifications(data)
     }
+  }
+
+  async function markOneRead(n) {
+    if (!n.is_read) {
+      await api.post(`/api/notifications/${n.id}/read`)
+      setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, is_read: true } : x))
+      setUnreadCount((c) => Math.max(0, c - 1))
+    }
+    if (n.task_id) navigate(`/tasks/${n.task_id}`)
+    setShowNotifPanel(false)
+  }
+
+  async function markAllRead() {
+    await api.post('/api/notifications/read-all')
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+    setUnreadCount(0)
   }
 
   function handleToggleDark() {
@@ -93,13 +110,11 @@ export default function Layout() {
             title={dark ? '라이트 모드' : '다크 모드'}
           >
             {dark ? (
-              /* 해(라이트로 전환) */
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
               </svg>
             ) : (
-              /* 달(다크로 전환) */
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
@@ -126,7 +141,17 @@ export default function Layout() {
 
             {showNotifPanel && (
               <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 z-50 max-h-96 overflow-y-auto">
-                <div className="p-3 border-b border-gray-100 dark:border-gray-700 font-semibold text-gray-700 dark:text-gray-200">알림</div>
+                <div className="p-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                  <span className="font-semibold text-gray-700 dark:text-gray-200">알림</span>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllRead}
+                      className="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200 font-medium"
+                    >
+                      모두 읽음
+                    </button>
+                  )}
+                </div>
                 {notifications.length === 0 ? (
                   <div className="p-4 text-center text-gray-400 text-sm">알림이 없습니다.</div>
                 ) : (
@@ -134,13 +159,15 @@ export default function Layout() {
                     <div
                       key={n.id}
                       className={`p-3 border-b border-gray-100 dark:border-gray-700 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${!n.is_read ? 'bg-blue-50 dark:bg-blue-900/30' : ''}`}
-                      onClick={() => {
-                        if (n.task_id) navigate(`/tasks/${n.task_id}`)
-                        setShowNotifPanel(false)
-                      }}
+                      onClick={() => markOneRead(n)}
                     >
-                      <p className="text-gray-800 dark:text-gray-200">{n.message}</p>
-                      <p className="text-gray-400 text-xs mt-1">{new Date(n.created_at).toLocaleString('ko-KR')}</p>
+                      <div className="flex items-start gap-2">
+                        {!n.is_read && <span className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />}
+                        <div>
+                          <p className="text-gray-800 dark:text-gray-200">{n.message}</p>
+                          <p className="text-gray-400 text-xs mt-1">{new Date(n.created_at).toLocaleString('ko-KR')}</p>
+                        </div>
+                      </div>
                     </div>
                   ))
                 )}
@@ -148,15 +175,42 @@ export default function Layout() {
             )}
           </div>
 
-          {/* 사용자 정보 (직급 제거) */}
-          <div className="text-sm">
-            <span className="font-medium">{user?.name}</span>
-            <span className="text-primary-200 ml-1 text-xs">{user?.department}</span>
+          {/* 사용자 메뉴 */}
+          <div className="relative" ref={userMenuRef}>
+            <button
+              onClick={() => setShowUserMenu((v) => !v)}
+              className="text-sm flex items-center gap-1 hover:text-primary-100 transition"
+            >
+              <span className="font-medium">{user?.name}</span>
+              <span className="text-primary-200 text-xs">{user?.department}</span>
+              <svg className="w-4 h-4 text-primary-200 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {showUserMenu && (
+              <div className="absolute right-0 mt-2 w-44 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 z-50 py-1">
+                <button
+                  onClick={() => { setShowProfileModal(true); setShowUserMenu(false) }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  내 프로필 편집
+                </button>
+                <button
+                  onClick={() => { setShowPasswordModal(true); setShowUserMenu(false) }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  비밀번호 변경
+                </button>
+                <hr className="border-gray-100 dark:border-gray-700 my-1" />
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  로그아웃
+                </button>
+              </div>
+            )}
           </div>
-
-          <button onClick={handleLogout} className="text-sm text-primary-200 hover:text-white transition">
-            로그아웃
-          </button>
         </div>
       </header>
 
@@ -167,6 +221,162 @@ export default function Layout() {
       <main className="flex-1 overflow-y-auto">
         <Outlet />
       </main>
+
+      {/* 프로필 편집 모달 */}
+      {showProfileModal && (
+        <ProfileModal
+          user={user}
+          onClose={() => setShowProfileModal(false)}
+          onSaved={(updated) => { updateProfile(updated); setShowProfileModal(false) }}
+        />
+      )}
+
+      {/* 비밀번호 변경 모달 */}
+      {showPasswordModal && (
+        <PasswordModal onClose={() => setShowPasswordModal(false)} />
+      )}
+    </div>
+  )
+}
+
+function ProfileModal({ user, onClose, onSaved }) {
+  const DEPARTMENTS = ['현장소장', '공무팀', '공사팀', '안전팀', '품질팀', '직영팀']
+  const [name, setName] = useState(user?.name || '')
+  const [jobTitle, setJobTitle] = useState(user?.job_title || '')
+  const [department, setDepartment] = useState(user?.department || '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSave() {
+    if (!name.trim()) { setError('이름을 입력해주세요.'); return }
+    setSaving(true)
+    setError('')
+    try {
+      const { data } = await api.patch('/api/users/me', {
+        name: name.trim(),
+        job_title: jobTitle.trim(),
+        department_name: department,
+      })
+      onSaved({ name: data.name, job_title: data.job_title, department: data.department })
+    } catch (e) {
+      setError(e.response?.data?.detail || '저장에 실패했습니다.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 w-96">
+        <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-4">내 프로필 편집</h3>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">이름</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">직책</label>
+            <input
+              value={jobTitle}
+              onChange={(e) => setJobTitle(e.target.value)}
+              placeholder="예: 팀장, 대리..."
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">부서</label>
+            <select
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              {DEPARTMENTS.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </div>
+          {error && <p className="text-xs text-red-500">{error}</p>}
+        </div>
+        <div className="flex gap-3 mt-5">
+          <button onClick={onClose} className="flex-1 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+            취소
+          </button>
+          <button onClick={handleSave} disabled={saving} className="flex-1 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
+            {saving ? '저장 중...' : '저장'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PasswordModal({ onClose }) {
+  const [current, setCurrent] = useState('')
+  const [next, setNext] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
+
+  async function handleSave() {
+    if (!current || !next || !confirm) { setError('모든 항목을 입력해주세요.'); return }
+    if (next !== confirm) { setError('새 비밀번호가 일치하지 않습니다.'); return }
+    if (next.length < 6) { setError('새 비밀번호는 6자 이상이어야 합니다.'); return }
+    setSaving(true)
+    setError('')
+    try {
+      await api.post('/api/auth/change-password', { current_password: current, new_password: next })
+      setSuccess(true)
+    } catch (e) {
+      setError(e.response?.data?.detail || '비밀번호 변경에 실패했습니다.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 w-96">
+        <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-4">비밀번호 변경</h3>
+        {success ? (
+          <div>
+            <p className="text-sm text-green-600 dark:text-green-400 mb-4">비밀번호가 변경되었습니다.</p>
+            <button onClick={onClose} className="w-full py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700">닫기</button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">현재 비밀번호</label>
+              <input type="password" value={current} onChange={(e) => setCurrent(e.target.value)}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">새 비밀번호 (6자 이상)</label>
+              <input type="password" value={next} onChange={(e) => setNext(e.target.value)}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">새 비밀번호 확인</label>
+              <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            </div>
+            {error && <p className="text-xs text-red-500">{error}</p>}
+            <div className="flex gap-3 mt-2">
+              <button onClick={onClose} className="flex-1 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                취소
+              </button>
+              <button onClick={handleSave} disabled={saving} className="flex-1 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
+                {saving ? '변경 중...' : '변경'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

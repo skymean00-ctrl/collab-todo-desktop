@@ -40,12 +40,17 @@ class TaskCreate(BaseModel):
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
+    assignee_id: Optional[int] = None
     category_id: Optional[int] = None
     priority: Optional[PriorityEnum] = None
     estimated_hours: Optional[float] = None
     due_date: Optional[date] = None
     progress: Optional[int] = None
     tag_names: Optional[List[str]] = None
+
+
+class CommentRequest(BaseModel):
+    comment: str
 
 
 class StatusChange(BaseModel):
@@ -183,11 +188,15 @@ async def create_task(req: TaskCreate, db: Session = Depends(get_db), current_us
 
 @router.get("/")
 def list_tasks(
-    section: Optional[str] = Query(None),  # assigned_to_me, assigned_by_me, subtasks_to_me
+    section: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
     priority: Optional[str] = Query(None),
     assignee_id: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
+    due_date_from: Optional[date] = Query(None),
+    due_date_to: Optional[date] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -212,9 +221,14 @@ def list_tasks(
         q = q.filter(Task.assignee_id == assignee_id)
     if search:
         q = q.filter(or_(Task.title.contains(search), Task.content.contains(search)))
+    if due_date_from:
+        q = q.filter(Task.due_date >= due_date_from)
+    if due_date_to:
+        q = q.filter(Task.due_date <= due_date_to)
 
-    tasks = q.order_by(Task.created_at.desc()).all()
-    return [task_to_dict(t) for t in tasks]
+    total = q.count()
+    items = q.order_by(Task.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    return {"items": [task_to_dict(t) for t in items], "total": total, "page": page, "page_size": page_size}
 
 
 @router.get("/dashboard")
@@ -234,7 +248,9 @@ def dashboard_summary(db: Session = Depends(get_db), current_user: User = Depend
     ).count()
     rejected = my_tasks.filter(Task.status == StatusEnum.rejected).count()
 
-    return {"total": total, "urgent": urgent, "due_soon": due_soon, "rejected": rejected}
+    status_breakdown = {s.value: my_tasks.filter(Task.status == s).count() for s in StatusEnum}
+
+    return {"total": total, "urgent": urgent, "due_soon": due_soon, "rejected": rejected, "status_breakdown": status_breakdown}
 
 
 @router.get("/{task_id}")
@@ -274,6 +290,15 @@ def update_task(task_id: int, req: TaskUpdate, db: Session = Depends(get_db), cu
         task.progress = max(0, min(100, req.progress))
     if req.tag_names is not None:
         task.tags = _get_or_create_tags(db, req.tag_names)
+    if req.assignee_id is not None and current_user.id == task.assigner_id:
+        new_assignee = db.query(User).filter(User.id == req.assignee_id, User.is_active == True).first()
+        if not new_assignee:
+            raise HTTPException(status_code=404, detail="담당자를 찾을 수 없습니다.")
+        old_assignee_id = task.assignee_id
+        task.assignee_id = req.assignee_id
+        db.add(TaskLog(task_id=task.id, user_id=current_user.id, action="reassigned",
+                       old_value=str(old_assignee_id), new_value=str(req.assignee_id)))
+        _add_notification(db, req.assignee_id, task.id, "assigned", f"업무가 재배정되었습니다: {task.title}")
 
     db.add(TaskLog(task_id=task.id, user_id=current_user.id, action="updated"))
     db.commit()
@@ -293,6 +318,9 @@ async def change_status(
         raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다.")
     if current_user.id not in (task.assigner_id, task.assignee_id) and not current_user.is_admin:
         raise HTTPException(status_code=403, detail="상태를 변경할 권한이 없습니다.")
+
+    if req.status == StatusEnum.rejected and not req.comment:
+        raise HTTPException(status_code=400, detail="반려 시 코멘트는 필수입니다.")
 
     old_status = task.status
     task.status = req.status
@@ -343,3 +371,55 @@ def get_logs(task_id: int, db: Session = Depends(get_db), _: User = Depends(get_
         }
         for l in logs
     ]
+
+
+@router.post("/{task_id}/comment")
+def add_comment(
+    task_id: int,
+    req: CommentRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다.")
+    if current_user.id not in (task.assigner_id, task.assignee_id) and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="댓글을 작성할 권한이 없습니다.")
+    if not req.comment.strip():
+        raise HTTPException(status_code=400, detail="댓글 내용을 입력해주세요.")
+    db.add(TaskLog(task_id=task.id, user_id=current_user.id, action="comment", comment=req.comment.strip()))
+    db.commit()
+    return {"message": "댓글이 등록되었습니다."}
+
+
+@router.post("/{task_id}/clone", status_code=201)
+async def clone_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    original = db.query(Task).options(joinedload(Task.tags)).filter(Task.id == task_id).first()
+    if not original:
+        raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다.")
+    if current_user.id not in (original.assigner_id, original.assignee_id) and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="업무를 복사할 권한이 없습니다.")
+
+    cloned = Task(
+        title=f"[복사] {original.title}",
+        content=original.content,
+        assigner_id=current_user.id,
+        assignee_id=original.assignee_id,
+        category_id=original.category_id,
+        priority=original.priority,
+        estimated_hours=original.estimated_hours,
+        due_date=original.due_date,
+        is_subtask=original.is_subtask,
+        parent_task_id=original.parent_task_id,
+    )
+    cloned.tags = list(original.tags)
+    db.add(cloned)
+    db.flush()
+    db.add(TaskLog(task_id=cloned.id, user_id=current_user.id, action="created", new_value="pending"))
+    _add_notification(db, original.assignee_id, cloned.id, "assigned", f"업무가 복사 배정되었습니다: {cloned.title}")
+    db.commit()
+    return {"message": "업무가 복사되었습니다.", "task_id": cloned.id}

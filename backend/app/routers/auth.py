@@ -17,6 +17,11 @@ settings = get_settings()
 # ── Schemas ──────────────────────────────────────────────
 DEPARTMENTS = ["현장소장", "공무팀", "공사팀", "안전팀", "품질팀", "직영팀"]
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
@@ -159,6 +164,21 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     record.user.is_verified = True
     db.commit()
     return {"message": "이메일 인증이 완료되었습니다."}
+
+
+@router.post("/change-password")
+def change_password(
+    req: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not verify_password(req.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="현재 비밀번호가 올바르지 않습니다.")
+    if len(req.new_password) < 6:
+        raise HTTPException(status_code=400, detail="새 비밀번호는 6자 이상이어야 합니다.")
+    current_user.password_hash = hash_password(req.new_password)
+    db.commit()
+    return {"message": "비밀번호가 변경되었습니다."}
 
 
 @router.post("/resend-verification")
