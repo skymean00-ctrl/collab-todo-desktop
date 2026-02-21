@@ -49,7 +49,7 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "your-org",
+      "owner": "skymean00-ctrl",
       "repo": "collab-todo-desktop"
     },
     "win": {
