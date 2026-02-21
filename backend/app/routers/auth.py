@@ -1,5 +1,5 @@
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -52,7 +52,7 @@ def _make_verification_token(db: Session, user_id: int) -> str:
     token = EmailVerificationToken(
         user_id=user_id,
         token=raw,
-        expires_at=datetime.utcnow() + timedelta(hours=24),
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
     )
     db.add(token)
     db.flush()
@@ -152,7 +152,7 @@ def verify_email(token: str, db: Session = Depends(get_db)):
 
     if not record:
         raise HTTPException(status_code=400, detail="유효하지 않은 인증 링크입니다.")
-    if record.expires_at < datetime.utcnow():
+    if record.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="인증 링크가 만료되었습니다. 재발송을 요청해주세요.")
 
     record.used = True

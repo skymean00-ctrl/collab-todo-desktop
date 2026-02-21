@@ -21,9 +21,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+from app.config import get_settings as _get_settings
+_settings = _get_settings()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Electron 앱에서 접근 허용
+    allow_origins=_settings.allowed_origins,  # .env의 ALLOWED_ORIGINS (기본값: 배포 도메인)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

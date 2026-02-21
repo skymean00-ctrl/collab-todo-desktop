@@ -255,6 +255,8 @@ def update_task(task_id: int, req: TaskUpdate, db: Session = Depends(get_db), cu
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다.")
+    if current_user.id not in (task.assigner_id, task.assignee_id) and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="업무를 수정할 권한이 없습니다.")
 
     if req.title is not None:
         task.title = req.title
@@ -289,6 +291,8 @@ async def change_status(
     ).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다.")
+    if current_user.id not in (task.assigner_id, task.assignee_id) and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="상태를 변경할 권한이 없습니다.")
 
     old_status = task.status
     task.status = req.status

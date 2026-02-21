@@ -15,6 +15,19 @@ settings = get_settings()
 
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 
+ALLOWED_EXTENSIONS = {
+    # 문서
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".hwp", ".hwpx",
+    # 텍스트
+    ".txt", ".csv", ".md",
+    # 이미지
+    ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg",
+    # 압축
+    ".zip", ".7z", ".tar", ".gz",
+    # 기타
+    ".xml", ".json",
+}
+
 
 @router.post("/{task_id}")
 async def upload_file(
@@ -29,7 +42,10 @@ async def upload_file(
 
     os.makedirs(settings.file_storage_path, exist_ok=True)
 
-    ext = os.path.splitext(file.filename)[1] if file.filename else ""
+    ext = os.path.splitext(file.filename)[1].lower() if file.filename else ""
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"허용되지 않는 파일 형식입니다. ({ext or '확장자 없음'})")
+
     stored_name = f"{uuid.uuid4().hex}{ext}"
     file_path = os.path.join(settings.file_storage_path, stored_name)
 

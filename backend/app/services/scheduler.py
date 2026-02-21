@@ -57,7 +57,7 @@ async def check_due_soon():
 
 
 def start_scheduler():
-    scheduler.add_job(check_due_soon, "cron", hour=9, minute=0)  # 매일 오전 9시
+    scheduler.add_job(check_due_soon, "cron", hour=9, minute=0, timezone="Asia/Seoul")  # 매일 오전 9시 KST
     scheduler.start()
 
 

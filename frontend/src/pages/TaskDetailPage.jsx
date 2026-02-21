@@ -81,7 +81,16 @@ export default function TaskDetailPage() {
         alert(`저장 완료: ${result.filePath}`)
       }
     } else {
-      window.open(url, '_blank')
+      // 브라우저: Authorization 헤더와 함께 fetch → Blob URL로 다운로드
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) { alert('다운로드에 실패했습니다.'); return }
+      const blob = await res.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = attachment.filename
+      a.click()
+      URL.revokeObjectURL(blobUrl)
     }
   }
 

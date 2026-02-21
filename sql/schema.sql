@@ -21,6 +21,8 @@ CREATE TABLE users (
     department_id INT,
     job_title     VARCHAR(100),              -- 직함 (대리, 과장, 팀장 등)
     is_active     BOOLEAN DEFAULT TRUE,
+    is_admin      BOOLEAN DEFAULT FALSE,
+    is_verified   BOOLEAN DEFAULT FALSE,
     created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (department_id) REFERENCES departments(id)
 );
@@ -109,6 +111,17 @@ CREATE TABLE notifications (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL
+);
+
+-- 이메일 인증 토큰
+CREATE TABLE email_verification_tokens (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    user_id    INT NOT NULL,
+    token      VARCHAR(100) NOT NULL UNIQUE,
+    used       BOOLEAN DEFAULT FALSE,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- 기본 카테고리 삽입

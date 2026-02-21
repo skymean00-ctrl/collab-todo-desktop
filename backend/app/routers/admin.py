@@ -41,6 +41,12 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User 
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
 
+    # 마지막 관리자 비활성화 방지
+    if user.is_admin:
+        admin_count = db.query(User).filter(User.is_admin == True, User.is_active == True).count()
+        if admin_count <= 1:
+            raise HTTPException(status_code=400, detail="마지막 관리자는 비활성화할 수 없습니다.")
+
     # 완전 삭제 대신 비활성화 (업무 이력 보존)
     user.is_active = False
     db.commit()
@@ -55,6 +61,12 @@ def toggle_admin(user_id: int, db: Session = Depends(get_db), current_user: User
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+
+    # 마지막 관리자 권한 해제 방지
+    if user.is_admin:
+        admin_count = db.query(User).filter(User.is_admin == True, User.is_active == True).count()
+        if admin_count <= 1:
+            raise HTTPException(status_code=400, detail="마지막 관리자의 권한은 해제할 수 없습니다.")
 
     user.is_admin = not user.is_admin
     db.commit()

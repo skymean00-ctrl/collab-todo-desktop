@@ -1,4 +1,4 @@
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useAuthStore from './store/authStore'
@@ -78,7 +78,7 @@ export default function App() {
         <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
 
         {/* 서버 설정 완료 후 진입 가능한 라우트 */}
-        <Route element={<RequireSetup><Routes /></RequireSetup>}>
+        <Route element={<RequireSetup><Outlet /></RequireSetup>}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
         </Route>
@@ -99,8 +99,6 @@ export default function App() {
           <Route path="admin" element={<AdminPage />} />
         </Route>
 
-        <Route path="/login" element={<RequireSetup><LoginPage /></RequireSetup>} />
-        <Route path="/register" element={<RequireSetup><RegisterPage /></RequireSetup>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </HashRouter>
