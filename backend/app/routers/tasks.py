@@ -200,34 +200,39 @@ def list_tasks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    q = db.query(Task).options(
-        joinedload(Task.assigner), joinedload(Task.assignee),
-        joinedload(Task.category), joinedload(Task.tags),
-        joinedload(Task.attachments), joinedload(Task.subtasks),
-    )
+    def apply_filters(q):
+        if section == "assigned_to_me":
+            q = q.filter(Task.assignee_id == current_user.id, Task.is_subtask == False)
+        elif section == "assigned_by_me":
+            q = q.filter(Task.assigner_id == current_user.id, Task.is_subtask == False)
+        elif section == "subtasks_to_me":
+            q = q.filter(Task.assignee_id == current_user.id, Task.is_subtask == True)
+        if status:
+            q = q.filter(Task.status == status)
+        if priority:
+            q = q.filter(Task.priority == priority)
+        if assignee_id:
+            q = q.filter(Task.assignee_id == assignee_id)
+        if search:
+            q = q.filter(or_(Task.title.contains(search), Task.content.contains(search)))
+        if due_date_from:
+            q = q.filter(Task.due_date >= due_date_from)
+        if due_date_to:
+            q = q.filter(Task.due_date <= due_date_to)
+        return q
 
-    if section == "assigned_to_me":
-        q = q.filter(Task.assignee_id == current_user.id, Task.is_subtask == False)
-    elif section == "assigned_by_me":
-        q = q.filter(Task.assigner_id == current_user.id, Task.is_subtask == False)
-    elif section == "subtasks_to_me":
-        q = q.filter(Task.assignee_id == current_user.id, Task.is_subtask == True)
+    # Bug fix: joinedload 없이 count → 1:N JOIN으로 인한 행 중복/부풀림 방지
+    total = apply_filters(db.query(Task)).count()
 
-    if status:
-        q = q.filter(Task.status == status)
-    if priority:
-        q = q.filter(Task.priority == priority)
-    if assignee_id:
-        q = q.filter(Task.assignee_id == assignee_id)
-    if search:
-        q = q.filter(or_(Task.title.contains(search), Task.content.contains(search)))
-    if due_date_from:
-        q = q.filter(Task.due_date >= due_date_from)
-    if due_date_to:
-        q = q.filter(Task.due_date <= due_date_to)
+    # 페이지 데이터는 eager load 포함
+    items = apply_filters(
+        db.query(Task).options(
+            joinedload(Task.assigner), joinedload(Task.assignee),
+            joinedload(Task.category), joinedload(Task.tags),
+            joinedload(Task.attachments), joinedload(Task.subtasks),
+        )
+    ).order_by(Task.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
 
-    total = q.count()
-    items = q.order_by(Task.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     return {"items": [task_to_dict(t) for t in items], "total": total, "page": page, "page_size": page_size}
 
 
@@ -290,6 +295,8 @@ def update_task(task_id: int, req: TaskUpdate, db: Session = Depends(get_db), cu
         task.progress = max(0, min(100, req.progress))
     if req.tag_names is not None:
         task.tags = _get_or_create_tags(db, req.tag_names)
+
+    reassigned = False
     if req.assignee_id is not None and current_user.id == task.assigner_id:
         new_assignee = db.query(User).filter(User.id == req.assignee_id, User.is_active == True).first()
         if not new_assignee:
@@ -299,8 +306,15 @@ def update_task(task_id: int, req: TaskUpdate, db: Session = Depends(get_db), cu
         db.add(TaskLog(task_id=task.id, user_id=current_user.id, action="reassigned",
                        old_value=str(old_assignee_id), new_value=str(req.assignee_id)))
         _add_notification(db, req.assignee_id, task.id, "assigned", f"업무가 재배정되었습니다: {task.title}")
+        reassigned = True
 
-    db.add(TaskLog(task_id=task.id, user_id=current_user.id, action="updated"))
+    # Bug fix: 담당자 변경만 한 경우 updated 로그 중복 추가 방지
+    other_fields_changed = any(v is not None for v in [
+        req.title, req.content, req.category_id, req.priority,
+        req.estimated_hours, req.due_date, req.progress, req.tag_names,
+    ])
+    if other_fields_changed or not reassigned:
+        db.add(TaskLog(task_id=task.id, user_id=current_user.id, action="updated"))
     db.commit()
     return {"message": "업무가 수정되었습니다."}
 

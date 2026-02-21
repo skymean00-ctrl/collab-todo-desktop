@@ -142,14 +142,14 @@ export default function AdminPage() {
       </div>
 
       <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
-        * 삭제 시 계정이 비활성화됩니다. 업무 이력은 보존됩니다.
+        * 비활성화 시 계정이 잠기며 업무 이력은 보존됩니다. 언제든 재활성화할 수 있습니다.
       </p>
 
-      {/* 삭제 확인 모달 */}
+      {/* 비활성화 확인 모달 */}
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 w-80">
-            <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-2">계정 삭제 확인</h3>
+            <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-2">계정 비활성화 확인</h3>
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
               <b>{confirmDelete.name}</b> ({confirmDelete.email}) 계정을 비활성화하시겠습니까?
             </p>
@@ -164,7 +164,7 @@ export default function AdminPage() {
                 onClick={() => handleDelete(confirmDelete)}
                 className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700"
               >
-                삭제
+                비활성화
               </button>
             </div>
           </div>
