@@ -20,7 +20,7 @@ function isOverdue(due_date, status) {
   return new Date(due_date) < new Date()
 }
 
-export default function TaskRow({ task, showAssigner = false, showAssignee = false }) {
+export default function TaskRow({ task, showAssigner = false, showAssignee = false, selected = false, onSelect }) {
   const navigate = useNavigate()
   const priority = PRIORITY_BADGE[task.priority] || PRIORITY_BADGE.normal
   const status = STATUS_BADGE[task.status] || STATUS_BADGE.pending
@@ -28,10 +28,18 @@ export default function TaskRow({ task, showAssigner = false, showAssignee = fal
 
   return (
     <tr
-      className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-700"
+      className={`hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-700 ${selected ? 'bg-primary-50 dark:bg-primary-900/20' : ''}`}
       onClick={() => navigate(`/tasks/${task.id}`)}
     >
-      {/* 제목 */}
+      {/* 체크박스 */}
+      <td className="py-3 px-4 w-10" onClick={(e) => e.stopPropagation()}>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => onSelect?.(task.id)}
+          className="rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500"
+        />
+      </td>
       <td className="py-3 px-4">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{task.title}</span>

@@ -9,6 +9,8 @@ import TaskDetailPage from './pages/TaskDetailPage'
 import VerifyEmailPage from './pages/VerifyEmailPage'
 import AdminPage from './pages/AdminPage'
 import SetupPage from './pages/SetupPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import Layout from './components/Layout'
 import UpdateBanner from './components/UpdateBanner'
 
@@ -76,6 +78,10 @@ export default function App() {
 
         {/* 이메일 인증 (로그인 불필요) */}
         <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
+
+        {/* 비밀번호 재설정 (로그인 불필요) */}
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
 
         {/* 서버 설정 완료 후 진입 가능한 라우트 */}
         <Route element={<RequireSetup><Outlet /></RequireSetup>}>

@@ -33,6 +33,7 @@ class User(Base):
     created_tasks = relationship("Task", foreign_keys="Task.assigner_id", back_populates="assigner")
     notifications = relationship("Notification", back_populates="user")
     verification_tokens = relationship("EmailVerificationToken", back_populates="user", cascade="all, delete-orphan")
+    reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
 
 
 class EmailVerificationToken(Base):
@@ -46,3 +47,16 @@ class EmailVerificationToken(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     user = relationship("User", back_populates="verification_tokens")
+
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token = Column(String(64), nullable=False, unique=True, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    used = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    user = relationship("User", back_populates="reset_tokens")

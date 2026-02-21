@@ -1,6 +1,7 @@
+import os
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_
+from sqlalchemy import or_, case
 from typing import Optional, List
 from datetime import date
 from pydantic import BaseModel
@@ -9,7 +10,10 @@ from app.models.user import User
 from app.models.task import Task, TaskLog, Notification, Category, Tag, StatusEnum, PriorityEnum, task_tags
 from app.utils.auth import get_current_user
 from app.utils.email import send_task_assigned, send_status_changed
+from app.config import get_settings
 import asyncio
+
+_settings = get_settings()
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
@@ -77,7 +81,17 @@ class CommentRequest(BaseModel):
     comment: str
 
 
+class CommentUpdate(BaseModel):
+    comment: str
+
+
 class StatusChange(BaseModel):
+    status: StatusEnum
+    comment: Optional[str] = None
+
+
+class BulkStatusChange(BaseModel):
+    task_ids: List[int]
     status: StatusEnum
     comment: Optional[str] = None
 
@@ -219,6 +233,8 @@ def list_tasks(
     search: Optional[str] = Query(None),
     due_date_from: Optional[date] = Query(None),
     due_date_to: Optional[date] = Query(None),
+    sort_by: Optional[str] = Query(None),   # created_at | due_date | priority | status | title
+    sort_dir: str = Query("desc"),           # asc | desc
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -284,6 +300,32 @@ def list_tasks(
             q = q.filter(Task.due_date <= due_date_to)
         return q
 
+    # ── 정렬 처리 ────────────────────────────────────────────
+    PRIORITY_ORDER = case(
+        (Task.priority == PriorityEnum.urgent, 1),
+        (Task.priority == PriorityEnum.high, 2),
+        (Task.priority == PriorityEnum.normal, 3),
+        (Task.priority == PriorityEnum.low, 4),
+        else_=5,
+    )
+    STATUS_ORDER = case(
+        (Task.status == StatusEnum.rejected, 1),
+        (Task.status == StatusEnum.pending, 2),
+        (Task.status == StatusEnum.in_progress, 3),
+        (Task.status == StatusEnum.review, 4),
+        (Task.status == StatusEnum.approved, 5),
+        else_=6,
+    )
+    asc_flag = sort_dir == "asc"
+    sort_map = {
+        "due_date": Task.due_date.asc().nullslast() if asc_flag else Task.due_date.desc().nullslast(),
+        "priority": PRIORITY_ORDER.asc() if asc_flag else PRIORITY_ORDER.desc(),
+        "status": STATUS_ORDER.asc() if asc_flag else STATUS_ORDER.desc(),
+        "title": Task.title.asc() if asc_flag else Task.title.desc(),
+        "created_at": Task.created_at.asc() if asc_flag else Task.created_at.desc(),
+    }
+    order_clause = sort_map.get(sort_by, Task.created_at.desc())
+
     # joinedload 없이 count → 1:N JOIN 행 중복 방지
     total = apply_filters(db.query(Task)).count()
 
@@ -293,7 +335,7 @@ def list_tasks(
             joinedload(Task.category), joinedload(Task.tags),
             joinedload(Task.attachments), joinedload(Task.subtasks),
         )
-    ).order_by(Task.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    ).order_by(order_clause).offset((page - 1) * page_size).limit(page_size).all()
 
     return {"items": [task_to_dict(t) for t in items], "total": total, "page": page, "page_size": page_size}
 
@@ -318,6 +360,46 @@ def dashboard_summary(db: Session = Depends(get_db), current_user: User = Depend
     status_breakdown = {s.value: my_tasks.filter(Task.status == s).count() for s in StatusEnum}
 
     return {"total": total, "urgent": urgent, "due_soon": due_soon, "rejected": rejected, "status_breakdown": status_breakdown}
+
+
+@router.post("/bulk-status")
+async def bulk_change_status(
+    req: BulkStatusChange,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if req.status == StatusEnum.rejected and not req.comment:
+        raise HTTPException(status_code=400, detail="반려 시 코멘트는 필수입니다.")
+    if not req.task_ids:
+        raise HTTPException(status_code=400, detail="업무를 선택해주세요.")
+
+    updated = 0
+    for task_id in req.task_ids:
+        task = db.query(Task).options(
+            joinedload(Task.assigner), joinedload(Task.assignee)
+        ).filter(Task.id == task_id).first()
+        if not task:
+            continue
+        if current_user.id not in (task.assigner_id, task.assignee_id) and not current_user.is_admin:
+            continue
+
+        old_status = task.status
+        task.status = req.status
+        db.add(TaskLog(
+            task_id=task.id,
+            user_id=current_user.id,
+            action="status_changed",
+            old_value=old_status,
+            new_value=req.status,
+            comment=req.comment,
+        ))
+        notify_user_id = task.assigner_id if current_user.id == task.assignee_id else task.assignee_id
+        _add_notification(db, notify_user_id, task.id, "status_changed",
+                          f"업무 상태 변경: {task.title} → {req.status}")
+        updated += 1
+
+    db.commit()
+    return {"message": f"{updated}건의 업무 상태가 변경되었습니다.", "updated": updated}
 
 
 @router.get("/{task_id}")
@@ -499,3 +581,83 @@ async def clone_task(
     _add_notification(db, original.assignee_id, cloned.id, "assigned", f"업무가 복사 배정되었습니다: {cloned.title}")
     db.commit()
     return {"message": "업무가 복사되었습니다.", "task_id": cloned.id}
+
+
+@router.delete("/{task_id}", status_code=204)
+def delete_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    task = db.query(Task).options(
+        joinedload(Task.subtasks).joinedload(Task.attachments),
+        joinedload(Task.attachments),
+    ).filter(Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다.")
+    if current_user.id != task.assigner_id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="업무를 삭제할 권한이 없습니다.")
+
+    # 물리 파일 삭제 (attachment 레코드 cascade 전에 처리)
+    all_attachments = list(task.attachments)
+    for subtask in task.subtasks:
+        all_attachments.extend(subtask.attachments)
+    for att in all_attachments:
+        fpath = os.path.join(_settings.file_storage_path, att.stored_name)
+        if os.path.exists(fpath):
+            try:
+                os.remove(fpath)
+            except OSError:
+                pass
+
+    # 서브태스크 먼저 삭제 (cascade: logs, attachments)
+    for subtask in list(task.subtasks):
+        db.delete(subtask)
+    db.flush()
+
+    db.delete(task)
+    db.commit()
+
+
+@router.patch("/{task_id}/comments/{log_id}")
+def update_comment(
+    task_id: int,
+    log_id: int,
+    req: CommentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    log = db.query(TaskLog).filter(
+        TaskLog.id == log_id,
+        TaskLog.task_id == task_id,
+        TaskLog.action == "comment",
+    ).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="댓글을 찾을 수 없습니다.")
+    if log.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="본인 댓글만 수정할 수 있습니다.")
+    if not req.comment.strip():
+        raise HTTPException(status_code=400, detail="댓글 내용을 입력해주세요.")
+    log.comment = req.comment.strip()
+    db.commit()
+    return {"message": "댓글이 수정되었습니다."}
+
+
+@router.delete("/{task_id}/comments/{log_id}", status_code=204)
+def delete_comment(
+    task_id: int,
+    log_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    log = db.query(TaskLog).filter(
+        TaskLog.id == log_id,
+        TaskLog.task_id == task_id,
+        TaskLog.action == "comment",
+    ).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="댓글을 찾을 수 없습니다.")
+    if log.user_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="본인 댓글만 삭제할 수 있습니다.")
+    db.delete(log)
+    db.commit()

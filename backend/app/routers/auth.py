@@ -5,9 +5,9 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
 from app.database import get_db
-from app.models.user import User, Department, EmailVerificationToken
+from app.models.user import User, Department, EmailVerificationToken, PasswordResetToken
 from app.utils.auth import hash_password, verify_password, create_access_token, get_current_user
-from app.utils.email import send_verification_email
+from app.utils.email import send_verification_email, send_password_reset
 from app.config import get_settings
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -19,6 +19,15 @@ DEPARTMENTS = ["현장소장", "공무팀", "공사팀", "안전팀", "품질팀
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
+    new_password: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
     new_password: str
 
 
@@ -179,6 +188,56 @@ def change_password(
     current_user.password_hash = hash_password(req.new_password)
     db.commit()
     return {"message": "비밀번호가 변경되었습니다."}
+
+
+@router.post("/forgot-password")
+async def forgot_password(
+    req: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    # 보안: 이메일 존재 여부와 무관하게 동일한 응답 반환
+    user = db.query(User).filter(User.email == req.email, User.is_active == True).first()
+    if user:
+        # 기존 미사용 토큰 제거
+        db.query(PasswordResetToken).filter(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.used == False,
+        ).delete()
+
+        raw = secrets.token_urlsafe(32)
+        token = PasswordResetToken(
+            user_id=user.id,
+            token=raw,
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        )
+        db.add(token)
+        db.commit()
+
+        reset_url = f"{settings.app_base_url}/#/reset-password/{raw}"
+        background_tasks.add_task(send_password_reset, user.email, user.name, reset_url)
+
+    return {"message": "입력한 이메일로 재설정 링크를 발송했습니다. (계정이 존재하는 경우)"}
+
+
+@router.post("/reset-password")
+def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
+    record = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token == req.token,
+        PasswordResetToken.used == False,
+    ).first()
+
+    if not record:
+        raise HTTPException(status_code=400, detail="유효하지 않은 재설정 링크입니다.")
+    if record.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="재설정 링크가 만료되었습니다. 다시 요청해주세요.")
+    if len(req.new_password) < 6:
+        raise HTTPException(status_code=400, detail="비밀번호는 6자 이상이어야 합니다.")
+
+    record.used = True
+    record.user.password_hash = hash_password(req.new_password)
+    db.commit()
+    return {"message": "비밀번호가 재설정되었습니다. 새 비밀번호로 로그인해주세요."}
 
 
 @router.post("/resend-verification")

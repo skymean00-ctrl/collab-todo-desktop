@@ -78,6 +78,33 @@ async def send_due_soon_reminder(to: str, user_name: str, task_title: str, due_d
     await send_notification_email(to, subject, body)
 
 
+async def send_password_reset(to: str, name: str, reset_url: str):
+    subject = "[CollabTodo] 비밀번호 재설정 안내"
+    body = f"""
+    <div style="font-family: 'Malgun Gothic', sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
+      <h2 style="color: #4f46e5;">CollabTodo 비밀번호 재설정</h2>
+      <p>안녕하세요, <b>{name}</b>님.</p>
+      <p>비밀번호 재설정 요청이 접수되었습니다.<br>
+         아래 버튼을 클릭하여 새 비밀번호를 설정해주세요.<br>
+         링크는 <b>1시간</b> 동안 유효합니다.</p>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="{reset_url}"
+           style="background-color: #4f46e5; color: white; padding: 14px 32px;
+                  border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
+          비밀번호 재설정
+        </a>
+      </div>
+      <p style="color: #6b7280; font-size: 13px;">
+        버튼이 작동하지 않으면 아래 링크를 브라우저에 복사하여 접속하세요.<br>
+        <a href="{reset_url}" style="color: #4f46e5;">{reset_url}</a>
+      </p>
+      <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+      <p style="color: #9ca3af; font-size: 12px;">본인이 요청하지 않으셨다면 이 메일을 무시하셔도 됩니다.</p>
+    </div>
+    """
+    await send_notification_email(to, subject, body)
+
+
 async def send_verification_email(to: str, name: str, verify_url: str):
     subject = "[CollabTodo] 이메일 인증을 완료해주세요"
     body = f"""

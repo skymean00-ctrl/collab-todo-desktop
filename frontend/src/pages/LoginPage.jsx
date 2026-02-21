@@ -69,6 +69,9 @@ export default function LoginPage() {
           계정이 없으신가요?{' '}
           <Link to="/register" className="text-primary-600 hover:underline">회원가입</Link>
         </p>
+        <p className="text-center text-sm text-gray-400 dark:text-gray-500 mt-2">
+          <Link to="/forgot-password" className="hover:text-primary-600 hover:underline">비밀번호를 잊으셨나요?</Link>
+        </p>
       </div>
     </div>
   )
