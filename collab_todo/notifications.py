@@ -4,10 +4,9 @@
 
 from __future__ import annotations
 
+import sqlite3
 from datetime import datetime
 from typing import List, Optional
-
-from mysql.connector.connection import MySQLConnection
 
 from .models import Notification
 
@@ -25,7 +24,7 @@ def _row_to_notification(row: tuple) -> Notification:
     )
 
 
-def list_unread_notifications(conn: MySQLConnection, user_id: int) -> List[Notification]:
+def list_unread_notifications(conn: sqlite3.Connection, user_id: int) -> List[Notification]:
     if user_id <= 0:
         return []
 
@@ -33,16 +32,10 @@ def list_unread_notifications(conn: MySQLConnection, user_id: int) -> List[Notif
     try:
         cursor.execute(
             """
-            SELECT id,
-                   recipient_id,
-                   task_id,
-                   notification_type,
-                   message,
-                   is_read,
-                   created_at,
-                   read_at
+            SELECT id, recipient_id, task_id, notification_type,
+                   message, is_read, created_at, read_at
               FROM notifications
-             WHERE recipient_id = %s
+             WHERE recipient_id = ?
                AND is_read = 0
              ORDER BY created_at ASC
             """,
@@ -56,14 +49,14 @@ def list_unread_notifications(conn: MySQLConnection, user_id: int) -> List[Notif
 
 
 def mark_notifications_as_read(
-    conn: MySQLConnection,
+    conn: sqlite3.Connection,
     notification_ids: List[int],
     *,
     read_at: Optional[datetime] = None,
 ) -> None:
     """
     알림을 읽음 처리한다.
-    
+
     Args:
         conn: 데이터베이스 연결
         notification_ids: 읽음 처리할 알림 ID 목록
@@ -77,23 +70,17 @@ def mark_notifications_as_read(
         return
 
     read_at_value = read_at or datetime.utcnow()
-
-    # 파라미터화된 쿼리 사용 (IN 절도 파라미터화)
-    placeholders = ", ".join(["%s"] * len(effective_ids))
-    # read_at_value를 첫 번째 파라미터로, 그 다음 ID들을 추가
+    placeholders = ", ".join(["?"] * len(effective_ids))
     params = [read_at_value] + effective_ids
 
     cursor = conn.cursor()
     try:
-        # 파라미터화된 쿼리로 변경 (f-string 제거)
         query = f"""
             UPDATE notifications
                SET is_read = 1,
-                   read_at = %s
+                   read_at = ?
              WHERE id IN ({placeholders})
             """
         cursor.execute(query, tuple(params))
     finally:
         cursor.close()
-
-

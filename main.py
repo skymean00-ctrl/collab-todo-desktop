@@ -20,7 +20,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QTimer
 
-from collab_todo.config import load_db_config, load_ai_service_config
+from collab_todo.config import load_ai_service_config
 from collab_todo.db import db_connection, DatabaseConnectionError
 from collab_todo.sync import SyncState, perform_sync
 from collab_todo.dashboard import summarize_tasks
@@ -92,21 +92,11 @@ class MainWindow(QMainWindow):
     def _init_user_selection(self) -> None:
         """
         사용자 선택 다이얼로그를 표시하고 현재 사용자를 설정한다.
-        
+
         데이터베이스 연결이 실패하면 사용자 선택을 건너뛴다.
         """
-        config = load_db_config()
-        if config is None:
-            QMessageBox.warning(
-                self,
-                "설정 필요",
-                "데이터베이스 설정이 완료되지 않았습니다.\n"
-                "환경 변수를 확인한 후 프로그램을 다시 시작하세요.",
-            )
-            return
-
         try:
-            with db_connection(config) as conn:
+            with db_connection() as conn:
                 users = list_active_users(conn)
                 if not users:
                     QMessageBox.warning(
@@ -177,23 +167,13 @@ class MainWindow(QMainWindow):
     def _on_sync_timer(self) -> None:
         """
         주기적으로 호출되어 DB 연결 상태와 할 일/알림을 동기화한다.
-
-        UI가 아직 단순하므로, 여기서는:
-        - DB 연결 여부만 확인
-        - 동기화 시간만 상태바에 반영
         """
-        config = load_db_config()
-        if config is None:
-            self._set_connection_status(False)
-            return
-
-        # 사용자가 선택되지 않았으면 동기화 건너뛰기
         if self._current_user_id is None:
             self._set_connection_status(False)
             return
 
         try:
-            with db_connection(config) as conn:
+            with db_connection() as conn:
                 result, new_state = perform_sync(
                     conn, user_id=self._current_user_id, state=self._sync_state
                 )

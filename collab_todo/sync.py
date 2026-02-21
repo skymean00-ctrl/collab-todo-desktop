@@ -7,11 +7,10 @@
 
 from __future__ import annotations
 
+import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional, Tuple
-
-from mysql.connector.connection import MySQLConnection
 
 from .models import Task, Notification
 from .repositories import list_tasks_for_assignee
@@ -23,7 +22,7 @@ class SyncState:
     """
     클라이언트가 유지하는 최소 동기화 상태.
 
-    - last_synced_at: 마지막으로 서버와 동기화한 시각(UTC)
+    - last_synced_at: 마지막으로 동기화한 시각(UTC)
     """
 
     last_synced_at: Optional[datetime]
@@ -36,7 +35,7 @@ class SyncResult:
 
     - tasks: 현재 담당자인 Task 목록
     - notifications: 아직 읽지 않은 알림 목록
-    - server_time: 서버 기준 현재 시각
+    - server_time: 현재 시각(UTC)
     """
 
     tasks: List[Task]
@@ -45,7 +44,7 @@ class SyncResult:
 
 
 def perform_sync(
-    conn: MySQLConnection,
+    conn: sqlite3.Connection,
     *,
     user_id: int,
     state: SyncState,
@@ -63,17 +62,21 @@ def perform_sync(
 
     cursor = conn.cursor()
     try:
-        cursor.execute("SELECT UTC_TIMESTAMP()")
+        cursor.execute("SELECT datetime('now')")
         row = cursor.fetchone()
     finally:
         cursor.close()
 
-    if not row or not isinstance(row[0], datetime):
-        raise RuntimeError("서버 시간을 가져오지 못했습니다.")
+    if not row or not row[0]:
+        raise RuntimeError("현재 시간을 가져오지 못했습니다.")
 
-    server_time: datetime = row[0]
+    # SQLite datetime('now') 는 'YYYY-MM-DD HH:MM:SS' 문자열 반환
+    raw_time = row[0]
+    if isinstance(raw_time, datetime):
+        server_time = raw_time
+    else:
+        server_time = datetime.fromisoformat(str(raw_time))
 
-    # 증분 동기화: last_synced_at이 있으면 변경된 항목만 조회
     tasks = list_tasks_for_assignee(
         conn,
         user_id=user_id,
@@ -90,5 +93,3 @@ def perform_sync(
 
     new_state = SyncState(last_synced_at=server_time)
     return result, new_state
-
-

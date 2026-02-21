@@ -1,14 +1,14 @@
 """
 애플리케이션 설정 로딩 모듈.
 
-환경 변수 또는 .env 파일을 통해 DB 연결 정보를 안전하게 읽어온다.
-코드 레벨에서 하드코딩된 비밀번호를 사용하지 않도록 한다.
+환경 변수 또는 기본값을 통해 SQLite DB 경로와 AI 서비스 설정을 읽어온다.
 """
 
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 
@@ -17,14 +17,9 @@ _ENV_PREFIX = "COLLAB_TODO_"
 
 @dataclass(frozen=True)
 class DatabaseConfig:
-    """데이터베이스 연결에 필요한 최소 설정 값."""
+    """SQLite 데이터베이스 파일 경로 설정."""
 
-    host: str
-    port: int
-    user: str
-    password: str
-    database: str
-    use_ssl: bool = False
+    db_path: str
 
 
 @dataclass(frozen=True)
@@ -45,41 +40,16 @@ def _get_env(name: str) -> Optional[str]:
     return value or None
 
 
-def load_db_config() -> Optional[DatabaseConfig]:
+def load_db_config() -> DatabaseConfig:
     """
-    환경 변수에서 DB 설정을 읽어 DatabaseConfig로 반환한다.
+    환경 변수 COLLAB_TODO_DB_PATH 에서 SQLite 파일 경로를 읽는다.
 
-    필수 값 중 하나라도 없으면 None을 반환하여 호출 측에서
-    '설정 미완료' 상태를 구분할 수 있게 한다.
+    설정이 없으면 홈 디렉터리 아래 기본 경로를 사용한다.
     """
-    host = _get_env("DB_HOST")
-    port_str = _get_env("DB_PORT")
-    user = _get_env("DB_USER")
-    password = _get_env("DB_PASSWORD")
-    database = _get_env("DB_NAME")
-    use_ssl_str = _get_env("DB_USE_SSL")
-
-    if not (host and port_str and user and password and database):
-        return None
-
-    try:
-        port = int(port_str)
-        if port <= 0 or port > 65535:
-            # 포트 범위 벗어나는 경우는 잘못된 설정으로 간주
-            return None
-    except ValueError:
-        return None
-
-    use_ssl = (use_ssl_str or "").lower() in {"1", "true", "yes", "on"}
-
-    return DatabaseConfig(
-        host=host,
-        port=port,
-        user=user,
-        password=password,
-        database=database,
-        use_ssl=use_ssl,
-    )
+    path = _get_env("DB_PATH")
+    if not path:
+        path = str(Path.home() / ".collab_todo" / "collab_todo.db")
+    return DatabaseConfig(db_path=path)
 
 
 def load_ai_service_config() -> Optional[AiServiceConfig]:
@@ -102,7 +72,6 @@ def load_ai_service_config() -> Optional[AiServiceConfig]:
             if parsed > 0:
                 timeout = parsed
         except ValueError:
-            # 잘못된 값이면 기본값 사용
             timeout = 15
 
     return AiServiceConfig(
@@ -110,6 +79,3 @@ def load_ai_service_config() -> Optional[AiServiceConfig]:
         api_key=api_key,
         timeout_seconds=timeout,
     )
-
-
-

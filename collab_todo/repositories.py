@@ -7,10 +7,9 @@ SQL 문자열을 애플리케이션 전역에 흩뿌리지 않고,
 
 from __future__ import annotations
 
+import sqlite3
 from datetime import datetime
 from typing import List, Optional
-
-from mysql.connector.connection import MySQLConnection
 
 from .models import User, Project, Task, TaskHistory
 
@@ -28,7 +27,7 @@ def _row_to_user(row: tuple) -> User:
     )
 
 
-def get_user_by_id(conn: MySQLConnection, user_id: int) -> Optional[User]:
+def get_user_by_id(conn: sqlite3.Connection, user_id: int) -> Optional[User]:
     if user_id <= 0:
         return None
 
@@ -38,7 +37,7 @@ def get_user_by_id(conn: MySQLConnection, user_id: int) -> Optional[User]:
             """
             SELECT id, username, display_name, email, role, is_active, created_at, updated_at
               FROM users
-             WHERE id = %s
+             WHERE id = ?
             """,
             (user_id,),
         )
@@ -51,7 +50,7 @@ def get_user_by_id(conn: MySQLConnection, user_id: int) -> Optional[User]:
     return _row_to_user(row)
 
 
-def list_active_users(conn: MySQLConnection) -> List[User]:
+def list_active_users(conn: sqlite3.Connection) -> List[User]:
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -81,7 +80,7 @@ def _row_to_project(row: tuple) -> Project:
     )
 
 
-def list_projects_for_user(conn: MySQLConnection, user_id: int) -> List[Project]:
+def list_projects_for_user(conn: sqlite3.Connection, user_id: int) -> List[Project]:
     """
     사용자가 소유하거나 멤버로 속한 프로젝트 목록을 조회한다.
     초기 버전에서는 owner 기준으로만 필터한다.
@@ -95,7 +94,7 @@ def list_projects_for_user(conn: MySQLConnection, user_id: int) -> List[Project]
             """
             SELECT id, name, description, owner_id, is_archived, created_at, updated_at
               FROM projects
-             WHERE owner_id = %s
+             WHERE owner_id = ?
                AND is_archived = 0
              ORDER BY created_at DESC
             """,
@@ -126,7 +125,7 @@ def _row_to_task(row: tuple) -> Task:
 
 
 def list_tasks_for_assignee(
-    conn: MySQLConnection,
+    conn: sqlite3.Connection,
     user_id: int,
     *,
     include_completed: bool = False,
@@ -134,7 +133,7 @@ def list_tasks_for_assignee(
 ) -> List[Task]:
     """
     담당자 기준으로 Task 목록을 조회한다.
-    
+
     Args:
         conn: 데이터베이스 연결
         user_id: 담당자 사용자 ID
@@ -146,26 +145,16 @@ def list_tasks_for_assignee(
 
     cursor = conn.cursor()
     try:
-        # 증분 동기화: last_synced_at이 있으면 변경된 항목만 조회
         if last_synced_at is not None:
             if include_completed:
                 cursor.execute(
                     """
-                    SELECT id,
-                           project_id,
-                           title,
-                           description,
-                           author_id,
-                           current_assignee_id,
-                           next_assignee_id,
-                           status,
-                           due_date,
-                           completed_at,
-                           created_at,
-                           updated_at
+                    SELECT id, project_id, title, description, author_id,
+                           current_assignee_id, next_assignee_id, status,
+                           due_date, completed_at, created_at, updated_at
                       FROM tasks
-                     WHERE current_assignee_id = %s
-                       AND (updated_at > %s OR created_at > %s)
+                     WHERE current_assignee_id = ?
+                       AND (updated_at > ? OR created_at > ?)
                      ORDER BY
                          CASE status
                              WHEN 'pending' THEN 1
@@ -175,7 +164,7 @@ def list_tasks_for_assignee(
                              WHEN 'completed' THEN 5
                              ELSE 6
                          END,
-                         due_date IS NULL,
+                         (due_date IS NULL),
                          due_date ASC,
                          created_at DESC
                     """,
@@ -184,22 +173,13 @@ def list_tasks_for_assignee(
             else:
                 cursor.execute(
                     """
-                    SELECT id,
-                           project_id,
-                           title,
-                           description,
-                           author_id,
-                           current_assignee_id,
-                           next_assignee_id,
-                           status,
-                           due_date,
-                           completed_at,
-                           created_at,
-                           updated_at
+                    SELECT id, project_id, title, description, author_id,
+                           current_assignee_id, next_assignee_id, status,
+                           due_date, completed_at, created_at, updated_at
                       FROM tasks
-                     WHERE current_assignee_id = %s
+                     WHERE current_assignee_id = ?
                        AND status <> 'completed'
-                       AND (updated_at > %s OR created_at > %s)
+                       AND (updated_at > ? OR created_at > ?)
                      ORDER BY
                          CASE status
                              WHEN 'pending' THEN 1
@@ -209,7 +189,7 @@ def list_tasks_for_assignee(
                              WHEN 'completed' THEN 5
                              ELSE 6
                          END,
-                         due_date IS NULL,
+                         (due_date IS NULL),
                          due_date ASC,
                          created_at DESC
                     """,
@@ -218,20 +198,11 @@ def list_tasks_for_assignee(
         elif include_completed:
             cursor.execute(
                 """
-                SELECT id,
-                       project_id,
-                       title,
-                       description,
-                       author_id,
-                       current_assignee_id,
-                       next_assignee_id,
-                       status,
-                       due_date,
-                       completed_at,
-                       created_at,
-                       updated_at
+                SELECT id, project_id, title, description, author_id,
+                       current_assignee_id, next_assignee_id, status,
+                       due_date, completed_at, created_at, updated_at
                   FROM tasks
-                 WHERE current_assignee_id = %s
+                 WHERE current_assignee_id = ?
                  ORDER BY
                      CASE status
                          WHEN 'pending' THEN 1
@@ -241,7 +212,7 @@ def list_tasks_for_assignee(
                          WHEN 'completed' THEN 5
                          ELSE 6
                      END,
-                     due_date IS NULL,
+                     (due_date IS NULL),
                      due_date ASC,
                      created_at DESC
                 """,
@@ -250,20 +221,11 @@ def list_tasks_for_assignee(
         else:
             cursor.execute(
                 """
-                SELECT id,
-                       project_id,
-                       title,
-                       description,
-                       author_id,
-                       current_assignee_id,
-                       next_assignee_id,
-                       status,
-                       due_date,
-                       completed_at,
-                       created_at,
-                       updated_at
+                SELECT id, project_id, title, description, author_id,
+                       current_assignee_id, next_assignee_id, status,
+                       due_date, completed_at, created_at, updated_at
                   FROM tasks
-                 WHERE current_assignee_id = %s
+                 WHERE current_assignee_id = ?
                    AND status <> 'completed'
                  ORDER BY
                      CASE status
@@ -274,7 +236,7 @@ def list_tasks_for_assignee(
                          WHEN 'completed' THEN 5
                          ELSE 6
                      END,
-                     due_date IS NULL,
+                     (due_date IS NULL),
                      due_date ASC,
                      created_at DESC
                 """,
@@ -287,7 +249,7 @@ def list_tasks_for_assignee(
     return [_row_to_task(row) for row in rows]
 
 
-def list_tasks_created_by_user(conn: MySQLConnection, user_id: int) -> List[Task]:
+def list_tasks_created_by_user(conn: sqlite3.Connection, user_id: int) -> List[Task]:
     """
     사용자가 작성자로 되어 있는 Task 목록을 조회한다.
     """
@@ -298,20 +260,11 @@ def list_tasks_created_by_user(conn: MySQLConnection, user_id: int) -> List[Task
     try:
         cursor.execute(
             """
-            SELECT id,
-                   project_id,
-                   title,
-                   description,
-                   author_id,
-                   current_assignee_id,
-                   next_assignee_id,
-                   status,
-                   due_date,
-                   completed_at,
-                   created_at,
-                   updated_at
+            SELECT id, project_id, title, description, author_id,
+                   current_assignee_id, next_assignee_id, status,
+                   due_date, completed_at, created_at, updated_at
               FROM tasks
-             WHERE author_id = %s
+             WHERE author_id = ?
              ORDER BY created_at DESC
             """,
             (user_id,),
@@ -336,7 +289,7 @@ def _row_to_task_history(row: tuple) -> TaskHistory:
     )
 
 
-def list_task_history(conn: MySQLConnection, task_id: int) -> List[TaskHistory]:
+def list_task_history(conn: sqlite3.Connection, task_id: int) -> List[TaskHistory]:
     """
     단일 Task에 대한 이력(타임라인)을 시간순으로 반환한다.
     """
@@ -347,16 +300,10 @@ def list_task_history(conn: MySQLConnection, task_id: int) -> List[TaskHistory]:
     try:
         cursor.execute(
             """
-            SELECT id,
-                   task_id,
-                   actor_id,
-                   action_type,
-                   old_status,
-                   new_status,
-                   note,
-                   created_at
+            SELECT id, task_id, actor_id, action_type,
+                   old_status, new_status, note, created_at
               FROM task_history
-             WHERE task_id = %s
+             WHERE task_id = ?
              ORDER BY created_at ASC
             """,
             (task_id,),
@@ -368,9 +315,8 @@ def list_task_history(conn: MySQLConnection, task_id: int) -> List[TaskHistory]:
     return [_row_to_task_history(row) for row in rows]
 
 
-
 def create_task(
-    conn: MySQLConnection,
+    conn: sqlite3.Connection,
     *,
     project_id: int,
     title: str,
@@ -397,16 +343,10 @@ def create_task(
         cursor.execute(
             """
             INSERT INTO tasks (
-                project_id,
-                title,
-                description,
-                author_id,
-                current_assignee_id,
-                next_assignee_id,
-                status,
-                due_date
+                project_id, title, description, author_id,
+                current_assignee_id, next_assignee_id, status, due_date
             )
-            VALUES (%s, %s, %s, %s, %s, %s, 'pending', %s)
+            VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
             """,
             (
                 project_id,
@@ -429,7 +369,7 @@ def create_task(
 
 
 def update_task_status(
-    conn: MySQLConnection,
+    conn: sqlite3.Connection,
     *,
     task_id: int,
     actor_id: int,
@@ -447,12 +387,7 @@ def update_task_status(
     cursor = conn.cursor()
     try:
         cursor.execute(
-            """
-            SELECT status
-              FROM tasks
-             WHERE id = %s
-             FOR UPDATE
-            """,
+            "SELECT status FROM tasks WHERE id = ?",
             (task_id,),
         )
         row = cursor.fetchone()
@@ -461,37 +396,26 @@ def update_task_status(
 
         old_status = row[0]
         if old_status in ("completed", "cancelled"):
-            # 이미 종료된 Task는 상태 변경하지 않음
             return
 
         cursor.execute(
-            """
-            UPDATE tasks
-               SET status = %s
-             WHERE id = %s
-            """,
+            "UPDATE tasks SET status = ? WHERE id = ?",
             (new_status, task_id),
         )
 
         cursor.execute(
             """
-            INSERT INTO task_history (
-                task_id,
-                actor_id,
-                action_type,
-                old_status,
-                new_status
-            )
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO task_history (task_id, actor_id, action_type, old_status, new_status)
+            VALUES (?, ?, 'status_change', ?, ?)
             """,
-            (task_id, actor_id, "status_change", old_status, new_status),
+            (task_id, actor_id, old_status, new_status),
         )
     finally:
         cursor.close()
 
 
 def complete_task_and_move_to_next(
-    conn: MySQLConnection,
+    conn: sqlite3.Connection,
     *,
     task_id: int,
     actor_id: int,
@@ -508,12 +432,7 @@ def complete_task_and_move_to_next(
     cursor = conn.cursor()
     try:
         cursor.execute(
-            """
-            SELECT status, next_assignee_id
-              FROM tasks
-             WHERE id = %s
-             FOR UPDATE
-            """,
+            "SELECT status, next_assignee_id FROM tasks WHERE id = ?",
             (task_id,),
         )
         row = cursor.fetchone()
@@ -525,45 +444,24 @@ def complete_task_and_move_to_next(
             return
 
         if next_assignee_id is None:
-            # 최종 완료
             new_status = "completed"
             cursor.execute(
-                """
-                UPDATE tasks
-                   SET status = %s,
-                       completed_at = NOW()
-                 WHERE id = %s
-                """,
+                "UPDATE tasks SET status = ?, completed_at = datetime('now') WHERE id = ?",
                 (new_status, task_id),
             )
         else:
-            # 다음 담당자에게 전달, 상태는 review로 설정
             new_status = "review"
             cursor.execute(
-                """
-                UPDATE tasks
-                   SET current_assignee_id = %s,
-                       status = %s
-                 WHERE id = %s
-                """,
+                "UPDATE tasks SET current_assignee_id = ?, status = ? WHERE id = ?",
                 (next_assignee_id, new_status, task_id),
             )
 
         cursor.execute(
             """
-            INSERT INTO task_history (
-                task_id,
-                actor_id,
-                action_type,
-                old_status,
-                new_status
-            )
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO task_history (task_id, actor_id, action_type, old_status, new_status)
+            VALUES (?, ?, 'complete_or_forward', ?, ?)
             """,
-            (task_id, actor_id, "complete_or_forward", current_status, new_status),
+            (task_id, actor_id, current_status, new_status),
         )
     finally:
         cursor.close()
-
-
-
