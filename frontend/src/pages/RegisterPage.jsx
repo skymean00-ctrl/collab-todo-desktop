@@ -3,6 +3,8 @@ import { useNavigate, Link } from 'react-router-dom'
 import api from '../utils/api'
 import useAuthStore from '../store/authStore'
 
+const DEPARTMENTS = ['현장소장', '공무팀', '공사팀', '안전팀', '품질팀', '직영팀']
+
 export default function RegisterPage() {
   const navigate = useNavigate()
   const login = useAuthStore((s) => s.login)
@@ -12,7 +14,6 @@ export default function RegisterPage() {
     passwordConfirm: '',
     name: '',
     department_name: '',
-    job_title: '',
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -21,6 +22,10 @@ export default function RegisterPage() {
     e.preventDefault()
     setError('')
 
+    if (!form.department_name) {
+      setError('부서를 선택해주세요.')
+      return
+    }
     if (form.password !== form.passwordConfirm) {
       setError('비밀번호가 일치하지 않습니다.')
       return
@@ -37,7 +42,6 @@ export default function RegisterPage() {
         password: form.password,
         name: form.name,
         department_name: form.department_name,
-        job_title: form.job_title,
       })
 
       // 가입 즉시 자동 로그인
@@ -61,14 +65,7 @@ export default function RegisterPage() {
     }
   }
 
-  const field = (key, type = 'text', placeholder = '') => ({
-    type,
-    value: form[key],
-    placeholder,
-    onChange: (e) => setForm({ ...form, [key]: e.target.value }),
-    className:
-      'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500',
-  })
+  const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500'
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-8">
@@ -79,33 +76,65 @@ export default function RegisterPage() {
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">이름 *</label>
-            <input required {...field('name', 'text', '홍길동')} />
+            <input
+              required
+              type="text"
+              placeholder="홍길동"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className={inputCls}
+            />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">회사 이메일 *</label>
-            <input required {...field('email', 'email', 'name@company.com')} />
+            <input
+              required
+              type="email"
+              placeholder="name@company.com"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              className={inputCls}
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">부서 *</label>
-              <input required {...field('department_name', 'text', '개발팀')} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">직급 *</label>
-              <input required {...field('job_title', 'text', '과장')} />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">부서 *</label>
+            <select
+              required
+              value={form.department_name}
+              onChange={(e) => setForm({ ...form, department_name: e.target.value })}
+              className={inputCls}
+            >
+              <option value="">부서를 선택하세요</option>
+              {DEPARTMENTS.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">비밀번호 *</label>
-            <input required {...field('password', 'password', '6자 이상')} />
+            <input
+              required
+              type="password"
+              placeholder="6자 이상"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              className={inputCls}
+            />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">비밀번호 확인 *</label>
-            <input required {...field('passwordConfirm', 'password', '비밀번호를 다시 입력')} />
+            <input
+              required
+              type="password"
+              placeholder="비밀번호를 다시 입력"
+              value={form.passwordConfirm}
+              onChange={(e) => setForm({ ...form, passwordConfirm: e.target.value })}
+              className={inputCls}
+            />
           </div>
 
           {error && <p className="text-red-500 text-sm">{error}</p>}

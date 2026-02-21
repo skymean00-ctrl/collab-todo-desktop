@@ -15,12 +15,17 @@ settings = get_settings()
 
 
 # ── Schemas ──────────────────────────────────────────────
+DEPARTMENTS = ["현장소장", "공무팀", "공사팀", "안전팀", "품질팀", "직영팀"]
+
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     name: str
     department_name: str
-    job_title: str
+
+    def validate_department(self):
+        if self.department_name not in DEPARTMENTS:
+            raise ValueError(f"올바르지 않은 부서입니다.")
 
 
 class TokenResponse(BaseModel):
@@ -76,6 +81,9 @@ async def register(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
+    if req.department_name not in DEPARTMENTS:
+        raise HTTPException(status_code=400, detail="올바르지 않은 부서입니다.")
+
     if db.query(User).filter(User.email == req.email).first():
         raise HTTPException(status_code=400, detail="이미 사용 중인 이메일입니다.")
 
@@ -94,7 +102,7 @@ async def register(
         password_hash=hash_password(req.password),
         name=req.name,
         department_id=dept.id,
-        job_title=req.job_title,
+        job_title=None,
         is_admin=is_first_user,
         is_verified=False,
     )
