@@ -1,6 +1,8 @@
-const { app, BrowserWindow, Tray, Menu, nativeImage, Notification, ipcMain, shell } = require('electron')
+const { app, BrowserWindow, Tray, Menu, nativeImage, Notification, ipcMain, dialog } = require('electron')
 const { autoUpdater } = require('electron-updater')
 const path = require('path')
+const { getServerUrl, setServerUrl } = require('./config')
+
 const isDev = process.env.NODE_ENV === 'development'
 
 let mainWindow = null
@@ -17,7 +19,6 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
-    titleBarStyle: 'default',
     show: false,
   })
 
@@ -43,53 +44,53 @@ function createWindow() {
 
 function createTray() {
   const iconPath = path.join(__dirname, '../public/tray-icon.png')
-  const icon = nativeImage.createFromPath(iconPath)
-  tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon)
+  let icon = nativeImage.createFromPath(iconPath)
+  if (icon.isEmpty()) icon = nativeImage.createEmpty()
+  tray = new Tray(icon)
 
   const contextMenu = Menu.buildFromTemplate([
     {
       label: 'CollabTodo 열기',
-      click: () => {
-        mainWindow.show()
-        mainWindow.focus()
-      },
+      click: () => { mainWindow.show(); mainWindow.focus() },
     },
     { type: 'separator' },
     {
       label: '종료',
-      click: () => {
-        app.isQuitting = true
-        app.quit()
-      },
+      click: () => { app.isQuitting = true; app.quit() },
     },
   ])
 
   tray.setToolTip('CollabTodo')
   tray.setContextMenu(contextMenu)
-  tray.on('double-click', () => {
-    mainWindow.show()
-    mainWindow.focus()
-  })
+  tray.on('double-click', () => { mainWindow.show(); mainWindow.focus() })
 }
 
+// ── IPC 핸들러 ──────────────────────────────────────────
+
+// 저장된 서버 URL 반환
+ipcMain.handle('get-server-url', () => getServerUrl())
+
+// 서버 URL 저장
+ipcMain.handle('set-server-url', (_, url) => {
+  setServerUrl(url)
+  return true
+})
+
 // 데스크톱 푸시 알림
-ipcMain.on('show-notification', (event, { title, body, taskId }) => {
+ipcMain.on('show-notification', (_, { title, body, taskId }) => {
   if (Notification.isSupported()) {
     const notif = new Notification({ title, body })
     notif.on('click', () => {
       mainWindow.show()
       mainWindow.focus()
-      if (taskId) {
-        mainWindow.webContents.send('navigate-to-task', taskId)
-      }
+      if (taskId) mainWindow.webContents.send('navigate-to-task', taskId)
     })
     notif.show()
   }
 })
 
-// 파일 다운로드 위치 선택
-ipcMain.handle('download-file', async (event, { url, filename, token }) => {
-  const { dialog } = require('electron')
+// 파일 다운로드 (저장 위치 선택 다이얼로그)
+ipcMain.handle('download-file', async (_, { url, filename, token }) => {
   const result = await dialog.showSaveDialog(mainWindow, {
     defaultPath: filename,
     filters: [{ name: 'All Files', extensions: ['*'] }],
@@ -99,28 +100,28 @@ ipcMain.handle('download-file', async (event, { url, filename, token }) => {
   const https = require('https')
   const http = require('http')
   const fs = require('fs')
-  const urlObj = new URL(url)
-  const protocol = urlObj.protocol === 'https:' ? https : http
 
   return new Promise((resolve) => {
-    const file = fs.createWriteStream(result.filePath)
+    const urlObj = new URL(url)
+    const protocol = urlObj.protocol === 'https:' ? https : http
     const options = {
       hostname: urlObj.hostname,
       port: urlObj.port,
       path: urlObj.pathname + urlObj.search,
       headers: { Authorization: `Bearer ${token}` },
     }
+    const file = fs.createWriteStream(result.filePath)
     protocol.get(options, (res) => {
       res.pipe(file)
-      file.on('finish', () => {
-        file.close()
-        resolve({ success: true, filePath: result.filePath })
-      })
-    }).on('error', (err) => {
-      resolve({ success: false, error: err.message })
-    })
+      file.on('finish', () => { file.close(); resolve({ success: true, filePath: result.filePath }) })
+    }).on('error', (err) => resolve({ success: false, error: err.message }))
   })
 })
+
+// 자동 업데이트 설치
+ipcMain.on('install-update', () => autoUpdater.quitAndInstall())
+
+// ── 앱 초기화 ────────────────────────────────────────────
 
 app.whenReady().then(() => {
   createWindow()
@@ -132,26 +133,17 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    // 트레이로 유지하므로 종료하지 않음
-  }
+  // 트레이로 유지 (종료하지 않음)
 })
 
 app.on('activate', () => {
-  if (mainWindow) {
-    mainWindow.show()
-  }
+  if (mainWindow) mainWindow.show()
 })
 
 // 자동 업데이트 이벤트
 autoUpdater.on('update-available', () => {
-  mainWindow.webContents.send('update-available')
+  mainWindow?.webContents.send('update-available')
 })
-
 autoUpdater.on('update-downloaded', () => {
-  mainWindow.webContents.send('update-downloaded')
-})
-
-ipcMain.on('install-update', () => {
-  autoUpdater.quitAndInstall()
+  mainWindow?.webContents.send('update-downloaded')
 })

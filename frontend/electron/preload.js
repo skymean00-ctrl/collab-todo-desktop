@@ -1,6 +1,10 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  // 서버 URL 설정 (최초 1회)
+  getServerUrl: () => ipcRenderer.invoke('get-server-url'),
+  setServerUrl: (url) => ipcRenderer.invoke('set-server-url', url),
+
   // 데스크톱 알림
   showNotification: (data) => ipcRenderer.send('show-notification', data),
 

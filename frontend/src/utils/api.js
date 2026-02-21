@@ -1,13 +1,15 @@
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+// Electron 저장값 → localStorage → 환경변수 순서로 서버 URL 결정
+export function getApiBase() {
+  return localStorage.getItem('server_url') || import.meta.env.VITE_API_URL || 'http://localhost:8000'
+}
 
-const api = axios.create({
-  baseURL: API_BASE,
-})
+const api = axios.create()
 
-// 요청마다 토큰 자동 첨부
+// 요청마다 최신 서버 URL + 인증 토큰 적용
 api.interceptors.request.use((config) => {
+  config.baseURL = getApiBase()
   const token = localStorage.getItem('access_token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
@@ -29,4 +31,3 @@ api.interceptors.response.use(
 )
 
 export default api
-export { API_BASE }

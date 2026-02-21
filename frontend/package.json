@@ -5,7 +5,7 @@
   "main": "electron/main.js",
   "scripts": {
     "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "build": "vite build && electron-builder",
+    "build": "vite build && electron-builder --win",
     "build:web": "vite build",
     "preview": "vite preview",
     "electron": "electron ."
@@ -19,8 +19,6 @@
     "zustand": "^5.0.3"
   },
   "devDependencies": {
-    "@types/react": "^18.3.18",
-    "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "concurrently": "^9.1.2",
@@ -30,14 +28,23 @@
     "postcss": "^8.5.1",
     "tailwindcss": "^3.4.17",
     "vite": "^6.0.7",
-    "vite-plugin-electron": "^0.28.8",
     "wait-on": "^8.0.1"
   },
   "build": {
     "appId": "com.company.collabtodo",
     "productName": "CollabTodo",
+    "copyright": "Copyright © 2025",
     "directories": {
-      "output": "dist-electron"
+      "output": "dist-electron",
+      "buildResources": "public"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "public/**/*"
+    ],
+    "extraMetadata": {
+      "main": "electron/main.js"
     },
     "publish": {
       "provider": "github",
@@ -45,22 +52,23 @@
       "repo": "collab-todo-desktop"
     },
     "win": {
-      "target": "nsis",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
       "icon": "public/icon.ico"
-    },
-    "mac": {
-      "target": "dmg",
-      "icon": "public/icon.icns"
-    },
-    "linux": {
-      "target": "AppImage",
-      "icon": "public/icon.png"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "shortcutName": "CollabTodo",
+      "installerHeader": "public/installer-header.bmp",
+      "language": "1042",
+      "include": "installer.nsh"
     }
   }
 }
