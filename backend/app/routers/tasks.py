@@ -317,14 +317,18 @@ def list_tasks(
         else_=6,
     )
     asc_flag = sort_dir == "asc"
+    # MariaDB는 NULLS LAST/FIRST 문법을 지원하지 않으므로
+    # due_date NULL 정렬은 CASE 표현식으로 대체
+    DUE_DATE_NULL_FLAG = case((Task.due_date.is_(None), 1), else_=0)
     sort_map = {
-        "due_date": Task.due_date.asc().nullslast() if asc_flag else Task.due_date.desc().nullslast(),
+        "due_date": (DUE_DATE_NULL_FLAG.asc(), Task.due_date.asc()) if asc_flag else (DUE_DATE_NULL_FLAG.asc(), Task.due_date.desc()),
         "priority": PRIORITY_ORDER.asc() if asc_flag else PRIORITY_ORDER.desc(),
         "status": STATUS_ORDER.asc() if asc_flag else STATUS_ORDER.desc(),
         "title": Task.title.asc() if asc_flag else Task.title.desc(),
         "created_at": Task.created_at.asc() if asc_flag else Task.created_at.desc(),
     }
-    order_clause = sort_map.get(sort_by, Task.created_at.desc())
+    order_expr = sort_map.get(sort_by, Task.created_at.desc())
+    order_clause = list(order_expr) if isinstance(order_expr, tuple) else [order_expr]
 
     # joinedload 없이 count → 1:N JOIN 행 중복 방지
     total = apply_filters(db.query(Task)).count()
@@ -335,7 +339,7 @@ def list_tasks(
             joinedload(Task.category), joinedload(Task.tags),
             joinedload(Task.attachments), joinedload(Task.subtasks),
         )
-    ).order_by(order_clause).offset((page - 1) * page_size).limit(page_size).all()
+    ).order_by(*order_clause).offset((page - 1) * page_size).limit(page_size).all()
 
     return {"items": [task_to_dict(t) for t in items], "total": total, "page": page, "page_size": page_size}
 
