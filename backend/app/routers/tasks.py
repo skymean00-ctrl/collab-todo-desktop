@@ -6,12 +6,36 @@ from datetime import date
 from pydantic import BaseModel
 from app.database import get_db
 from app.models.user import User
-from app.models.task import Task, TaskLog, Notification, Category, Tag, StatusEnum, PriorityEnum
+from app.models.task import Task, TaskLog, Notification, Category, Tag, StatusEnum, PriorityEnum, task_tags
 from app.utils.auth import get_current_user
 from app.utils.email import send_task_assigned, send_status_changed
 import asyncio
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
+
+# ── 검색 키워드 → 필터 매핑 ────────────────────────────────
+# 사용자가 "반려" "긴급" 등을 검색창에 입력하면 해당 필터로 자동 전환
+SEARCH_STATUS_KEYWORDS: dict[str, StatusEnum] = {
+    "대기": StatusEnum.pending,
+    "진행중": StatusEnum.in_progress,
+    "진행": StatusEnum.in_progress,
+    "검토": StatusEnum.review,
+    "검토요청": StatusEnum.review,
+    "검토중": StatusEnum.review,
+    "완료": StatusEnum.approved,
+    "승인": StatusEnum.approved,
+    "반려": StatusEnum.rejected,
+    "반려됨": StatusEnum.rejected,
+}
+
+SEARCH_PRIORITY_KEYWORDS: dict[str, PriorityEnum] = {
+    "긴급": PriorityEnum.urgent,
+    "급함": PriorityEnum.urgent,
+    "급한": PriorityEnum.urgent,
+    "높음": PriorityEnum.high,
+    "보통": PriorityEnum.normal,
+    "낮음": PriorityEnum.low,
+}
 
 
 # ── Schemas ──────────────────────────────────────────────
@@ -200,6 +224,21 @@ def list_tasks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # ── 검색어 파싱 ──────────────────────────────────────────
+    # 스페이스로 분리 → 각 단어를 상태/우선순위 키워드 또는 텍스트 검색어로 분류
+    text_terms: List[str] = []
+    implied_status: Optional[StatusEnum] = None
+    implied_priority: Optional[PriorityEnum] = None
+
+    if search:
+        for word in search.strip().split():
+            if word in SEARCH_STATUS_KEYWORDS and status is None and implied_status is None:
+                implied_status = SEARCH_STATUS_KEYWORDS[word]
+            elif word in SEARCH_PRIORITY_KEYWORDS and priority is None and implied_priority is None:
+                implied_priority = SEARCH_PRIORITY_KEYWORDS[word]
+            else:
+                text_terms.append(word)
+
     def apply_filters(q):
         if section == "assigned_to_me":
             q = q.filter(Task.assignee_id == current_user.id, Task.is_subtask == False)
@@ -207,24 +246,47 @@ def list_tasks(
             q = q.filter(Task.assigner_id == current_user.id, Task.is_subtask == False)
         elif section == "subtasks_to_me":
             q = q.filter(Task.assignee_id == current_user.id, Task.is_subtask == True)
+
         if status:
             q = q.filter(Task.status == status)
+        elif implied_status:
+            q = q.filter(Task.status == implied_status)
+
         if priority:
             q = q.filter(Task.priority == priority)
+        elif implied_priority:
+            q = q.filter(Task.priority == implied_priority)
+
         if assignee_id:
             q = q.filter(Task.assignee_id == assignee_id)
-        if search:
-            q = q.filter(or_(Task.title.contains(search), Task.content.contains(search)))
+
+        # ── 확장 텍스트 검색 ──────────────────────────────────
+        # 각 단어를 AND 조건으로 처리, 검색 범위: 제목·내용·담당자명·지시자명·태그명·카테고리명
+        for term in text_terms:
+            user_ids_matching = db.query(User.id).filter(User.name.contains(term))
+            tag_ids_matching = db.query(Tag.id).filter(Tag.name.contains(term))
+            cat_ids_matching = db.query(Category.id).filter(Category.name.contains(term))
+            task_ids_with_tag = db.query(task_tags.c.task_id).filter(
+                task_tags.c.tag_id.in_(tag_ids_matching)
+            )
+            q = q.filter(or_(
+                Task.title.contains(term),
+                Task.content.contains(term),
+                Task.assignee_id.in_(user_ids_matching),
+                Task.assigner_id.in_(user_ids_matching),
+                Task.category_id.in_(cat_ids_matching),
+                Task.id.in_(task_ids_with_tag),
+            ))
+
         if due_date_from:
             q = q.filter(Task.due_date >= due_date_from)
         if due_date_to:
             q = q.filter(Task.due_date <= due_date_to)
         return q
 
-    # Bug fix: joinedload 없이 count → 1:N JOIN으로 인한 행 중복/부풀림 방지
+    # joinedload 없이 count → 1:N JOIN 행 중복 방지
     total = apply_filters(db.query(Task)).count()
 
-    # 페이지 데이터는 eager load 포함
     items = apply_filters(
         db.query(Task).options(
             joinedload(Task.assigner), joinedload(Task.assignee),

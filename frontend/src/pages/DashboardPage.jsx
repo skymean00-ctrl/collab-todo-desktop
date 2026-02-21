@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../utils/api'
 import TaskRow from '../components/TaskRow'
 import TaskFormModal from '../components/TaskFormModal'
@@ -48,6 +48,11 @@ export default function DashboardPage() {
   const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [recentSearches, setRecentSearches] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('collabtodo_recent_searches') || '[]') } catch { return [] }
+  })
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const searchRef = useRef(null)
 
   useEffect(() => {
     fetchSummary()
@@ -82,10 +87,43 @@ export default function DashboardPage() {
     }
   }, [statusFilter, priorityFilter, search, dueDateFrom, dueDateTo])
 
+  function saveRecentSearch(term) {
+    if (!term.trim()) return
+    const next = [term, ...recentSearches.filter((s) => s !== term)].slice(0, 6)
+    setRecentSearches(next)
+    localStorage.setItem('collabtodo_recent_searches', JSON.stringify(next))
+  }
+
   function handleSearch(e) {
     e.preventDefault()
+    setShowSuggestions(false)
+    if (search.trim()) saveRecentSearch(search.trim())
     setPage(1)
     fetchTasks(activeSection, 1)
+  }
+
+  function applyRecentSearch(term) {
+    setSearch(term)
+    setShowSuggestions(false)
+    setPage(1)
+    // fetchTasks는 search 상태가 term으로 바뀐 뒤 호출되어야 하므로 직접 params 구성
+    const params = new URLSearchParams({ section: activeSection, page: 1, page_size: PAGE_SIZE })
+    if (statusFilter) params.append('status', statusFilter)
+    if (priorityFilter) params.append('priority', priorityFilter)
+    params.append('search', term)
+    if (dueDateFrom) params.append('due_date_from', dueDateFrom)
+    if (dueDateTo) params.append('due_date_to', dueDateTo)
+    setLoading(true)
+    api.get(`/api/tasks/?${params}`).then(({ data }) => {
+      setTasks((prev) => ({ ...prev, [activeSection]: data }))
+    }).finally(() => setLoading(false))
+  }
+
+  function clearRecentSearch(term, e) {
+    e.stopPropagation()
+    const next = recentSearches.filter((s) => s !== term)
+    setRecentSearches(next)
+    localStorage.setItem('collabtodo_recent_searches', JSON.stringify(next))
   }
 
   function onTaskCreated() {
@@ -276,15 +314,55 @@ export default function DashboardPage() {
               초기화
             </button>
           )}
-          <form onSubmit={handleSearch} className="ml-auto flex gap-2">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="제목 검색..."
-              className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-48 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-            />
-            <button type="submit" className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-600">
+          <form onSubmit={handleSearch} className="ml-auto flex gap-2 relative" ref={searchRef}>
+            <div className="relative">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                placeholder="담당자·태그·키워드 검색 (예: 반려 긴급)"
+                className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-64 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => { setSearch(''); setPage(1); fetchTasks(activeSection, 1) }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs"
+                >
+                  ✕
+                </button>
+              )}
+              {/* 최근 검색어 드롭다운 */}
+              {showSuggestions && recentSearches.length > 0 && (
+                <div className="absolute top-full left-0 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-30 overflow-hidden">
+                  <p className="text-xs text-gray-400 dark:text-gray-500 px-3 pt-2 pb-1">최근 검색어</p>
+                  {recentSearches.map((s) => (
+                    <div
+                      key={s}
+                      onClick={() => applyRecentSearch(s)}
+                      className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        {s}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => clearRecentSearch(s, e)}
+                        className="text-gray-300 hover:text-gray-500 dark:hover:text-gray-200 text-xs ml-2"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button type="submit" className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-600 flex-shrink-0">
               검색
             </button>
           </form>
