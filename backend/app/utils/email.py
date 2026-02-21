@@ -1,20 +1,25 @@
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from app.config import get_settings
 
-settings = get_settings()
+# FastMail 인스턴스를 지연 생성 (모듈 로드 시 .env 없어도 오류 없도록)
+_fm = None
 
-mail_config = ConnectionConfig(
-    MAIL_USERNAME=settings.mail_username,
-    MAIL_PASSWORD=settings.mail_password,
-    MAIL_FROM=settings.mail_from,
-    MAIL_PORT=settings.mail_port,
-    MAIL_SERVER=settings.mail_server,
-    MAIL_STARTTLS=True,
-    MAIL_SSL_TLS=False,
-    USE_CREDENTIALS=True,
-)
-
-fm = FastMail(mail_config)
+def _get_fm() -> FastMail:
+    global _fm
+    if _fm is None:
+        settings = get_settings()
+        mail_config = ConnectionConfig(
+            MAIL_USERNAME=settings.mail_username,
+            MAIL_PASSWORD=settings.mail_password,
+            MAIL_FROM=settings.mail_from,
+            MAIL_PORT=settings.mail_port,
+            MAIL_SERVER=settings.mail_server,
+            MAIL_STARTTLS=True,
+            MAIL_SSL_TLS=False,
+            USE_CREDENTIALS=True,
+        )
+        _fm = FastMail(mail_config)
+    return _fm
 
 
 async def send_notification_email(to: str, subject: str, body: str):
@@ -24,7 +29,7 @@ async def send_notification_email(to: str, subject: str, body: str):
         body=body,
         subtype=MessageType.html,
     )
-    await fm.send_message(message)
+    await _get_fm().send_message(message)
 
 
 async def send_task_assigned(to: str, assignee_name: str, task_title: str, assigner_name: str, due_date: str):
