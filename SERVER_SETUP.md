@@ -69,7 +69,7 @@ After=network.target mysql.service
 
 [Service]
 Type=simple
-User=root
+User=user    # root 대신 전용 계정 권장: sudo adduser --system --no-create-home collabtodo
 WorkingDirectory=/home/user/collab-todo-desktop/backend
 ExecStart=/home/user/collab-todo-desktop/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 Restart=always
@@ -95,8 +95,11 @@ sudo systemctl start collabtodo-api
 ```bash
 cd frontend
 npm install
-npm run build
+npm run build:web    # vite 빌드만 실행 (electron-builder 제외 → Linux 서버 배포용)
 ```
+
+> **주의**: `npm run build`는 `electron-builder --win`까지 포함하여 Windows 환경에서만 동작합니다.
+> 서버 배포 시에는 반드시 `npm run build:web`을 사용하세요.
 
 빌드된 `frontend/dist/` 폴더를 서버로 복사:
 
@@ -182,7 +185,7 @@ sudo journalctl -u nginx -f
 
 ```bash
 # 로컬에서 빌드 후 서버 업로드
-npm run build
+npm run build:web
 scp -r frontend/dist/* user@서버IP:/var/www/collabtodo/
 ```
 
