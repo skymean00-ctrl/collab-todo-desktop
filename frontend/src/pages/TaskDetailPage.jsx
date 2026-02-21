@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import api, { API_BASE } from '../utils/api'
+import api, { getApiBase } from '../utils/api'
 import useAuthStore from '../store/authStore'
 import TaskFormModal from '../components/TaskFormModal'
 
@@ -73,7 +73,7 @@ export default function TaskDetailPage() {
   }
 
   async function downloadFile(attachment) {
-    const url = `${API_BASE}/api/attachments/${attachment.id}/download`
+    const url = `${getApiBase()}/api/attachments/${attachment.id}/download`
     const token = localStorage.getItem('access_token')
     if (window.electronAPI) {
       const result = await window.electronAPI.downloadFile({ url, filename: attachment.filename, token })

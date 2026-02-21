@@ -21,23 +21,22 @@ function RequireAuth({ children }) {
 function RequireSetup({ children }) {
   const [checked, setChecked] = useState(false)
   const [configured, setConfigured] = useState(false)
-  const navigate = useNavigate()
 
   useEffect(() => {
     async function check() {
-      // Electron 환경: config 파일에서 서버 URL 확인
-      if (window.electronAPI?.getServerUrl) {
-        const saved = await window.electronAPI.getServerUrl()
-        if (saved) {
-          localStorage.setItem('server_url', saved)
-          setConfigured(true)
-        } else {
-          setConfigured(false)
-        }
+      // 브라우저 접속(폰 등): 현재 origin이 곧 서버이므로 설정 불필요
+      if (!window.electronAPI) {
+        setConfigured(true)
+        setChecked(true)
+        return
+      }
+      // Electron 앱: config 파일에서 서버 URL 확인
+      const saved = await window.electronAPI.getServerUrl()
+      if (saved) {
+        localStorage.setItem('server_url', saved)
+        setConfigured(true)
       } else {
-        // 브라우저/개발 환경: localStorage 또는 env 확인
-        const saved = localStorage.getItem('server_url') || import.meta.env.VITE_API_URL
-        setConfigured(!!saved)
+        setConfigured(false)
       }
       setChecked(true)
     }
