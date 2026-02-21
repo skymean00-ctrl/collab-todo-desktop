@@ -74,7 +74,7 @@ def _make_verification_token(db: Session, user_id: int) -> str:
 
 
 def _build_response(user: User, db: Session) -> TokenResponse:
-    access_token = create_access_token({"sub": user.id})
+    access_token = create_access_token({"sub": str(user.id)})
     dept_name = user.department.name if user.department else ""
     return TokenResponse(
         access_token=access_token,

@@ -2,7 +2,7 @@ from sqlalchemy import (
     Column, Integer, String, Text, Boolean, DateTime,
     Date, ForeignKey, Enum, DECIMAL, BigInteger, Table
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 from sqlalchemy.sql import func
 from app.database import Base
 import enum
@@ -74,7 +74,7 @@ class Task(Base):
     assignee = relationship("User", foreign_keys=[assignee_id], back_populates="assigned_tasks")
     category = relationship("Category", back_populates="tasks")
     tags = relationship("Tag", secondary=task_tags, back_populates="tasks")
-    subtasks = relationship("Task", foreign_keys=[parent_task_id], backref="parent_task")
+    subtasks = relationship("Task", foreign_keys=[parent_task_id], backref=backref("parent_task", remote_side=[id]))
     attachments = relationship("Attachment", back_populates="task", cascade="all, delete-orphan")
     logs = relationship("TaskLog", back_populates="task", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="task")
