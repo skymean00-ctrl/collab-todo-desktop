@@ -18,6 +18,11 @@ frontend/.vite/
 *.swp
 *.swo
 
+# SQLite DB
+*.db
+*.sqlite
+*.sqlite3
+
 # 환경설정 (실제 값 포함되면 안됨)
 .env
 backend/.env
