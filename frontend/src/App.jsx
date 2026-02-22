@@ -11,6 +11,7 @@ import AdminPage from './pages/AdminPage'
 import SetupPage from './pages/SetupPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import NotificationsPage from './pages/NotificationsPage'
 import Layout from './components/Layout'
 import UpdateBanner from './components/UpdateBanner'
 
@@ -26,13 +27,11 @@ function RequireSetup({ children }) {
 
   useEffect(() => {
     async function check() {
-      // 브라우저 접속(폰 등): 현재 origin이 곧 서버이므로 설정 불필요
       if (!window.electronAPI) {
         setConfigured(true)
         setChecked(true)
         return
       }
-      // Electron 앱: config 파일에서 서버 URL 확인
       const saved = await window.electronAPI.getServerUrl()
       if (saved) {
         localStorage.setItem('server_url', saved)
@@ -73,23 +72,16 @@ export default function App() {
       <ElectronNavigator />
       <UpdateBanner />
       <Routes>
-        {/* 서버 설정 (최초 실행 시) */}
         <Route path="/setup" element={<SetupPage />} />
-
-        {/* 이메일 인증 (로그인 불필요) */}
         <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
-
-        {/* 비밀번호 재설정 (로그인 불필요) */}
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
 
-        {/* 서버 설정 완료 후 진입 가능한 라우트 */}
         <Route element={<RequireSetup><Outlet /></RequireSetup>}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
         </Route>
 
-        {/* 인증 필요 라우트 */}
         <Route
           path="/"
           element={
@@ -103,6 +95,7 @@ export default function App() {
           <Route index element={<DashboardPage />} />
           <Route path="tasks/:taskId" element={<TaskDetailPage />} />
           <Route path="admin" element={<AdminPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -242,6 +242,21 @@ export default function TaskDetailPage() {
           ← 목록으로
         </button>
         <div className="flex items-center gap-2">
+          {/* 즐겨찾기 */}
+          <button
+            onClick={async () => {
+              try {
+                const { data } = await api.post(`/api/tasks/${taskId}/favorite`)
+                setTask((t) => ({ ...t, is_favorite: data.is_favorite }))
+              } catch (e) { console.error(e) }
+            }}
+            className={`text-xl leading-none px-2 py-1 rounded-lg border transition ${
+              task.is_favorite
+                ? 'text-yellow-400 border-yellow-300 bg-yellow-50 dark:bg-yellow-900/20'
+                : 'text-gray-300 dark:text-gray-600 border-gray-200 dark:border-gray-700 hover:text-yellow-300'
+            }`}
+            title={task.is_favorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+          >★</button>
           <button
             onClick={handleClone}
             disabled={cloning}
@@ -487,7 +502,7 @@ export default function TaskDetailPage() {
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && submitComment()}
-                placeholder="댓글 입력 (Enter)"
+                placeholder="댓글 입력 (Enter) · @이름으로 멘션"
                 className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
               <button

@@ -20,8 +20,13 @@ export default function LoginPage() {
       params.append('password', form.password)
       const { data } = await api.post('/api/auth/login', params)
       login(
-        { id: data.user_id, name: data.name, email: data.email, department: data.department, job_title: data.job_title },
-        data.access_token
+        {
+          id: data.user_id, name: data.name, email: data.email,
+          department: data.department, job_title: data.job_title,
+          is_admin: data.is_admin, is_verified: data.is_verified,
+        },
+        data.access_token,
+        data.refresh_token,
       )
       navigate('/')
     } catch (err) {

@@ -15,6 +15,7 @@ export default function Layout() {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [showNotifPrefModal, setShowNotifPrefModal] = useState(false)
   const userMenuRef = useRef(null)
 
   useEffect(() => {
@@ -44,8 +45,8 @@ export default function Layout() {
     const isOpening = !showNotifPanel
     setShowNotifPanel((v) => !v)
     if (isOpening) {
-      const { data } = await api.get('/api/notifications/')
-      setNotifications(data)
+      const { data } = await api.get('/api/notifications/', { params: { page: 1, page_size: 20 } })
+      setNotifications(data.items || [])
     }
   }
 
@@ -171,6 +172,14 @@ export default function Layout() {
                     </div>
                   ))
                 )}
+                <div className="p-2 border-t border-gray-100 dark:border-gray-700">
+                  <button
+                    onClick={() => { setShowNotifPanel(false); navigate('/notifications') }}
+                    className="w-full text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200 py-1 text-center"
+                  >
+                    전체 알림 보기 →
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -200,6 +209,12 @@ export default function Layout() {
                   className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   비밀번호 변경
+                </button>
+                <button
+                  onClick={() => { setShowNotifPrefModal(true); setShowUserMenu(false) }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  알림 설정
                 </button>
                 <hr className="border-gray-100 dark:border-gray-700 my-1" />
                 <button
@@ -235,17 +250,28 @@ export default function Layout() {
       {showPasswordModal && (
         <PasswordModal onClose={() => setShowPasswordModal(false)} />
       )}
+
+      {/* 알림 설정 모달 */}
+      {showNotifPrefModal && (
+        <NotifPrefModal onClose={() => setShowNotifPrefModal(false)} />
+      )}
     </div>
   )
 }
 
 function ProfileModal({ user, onClose, onSaved }) {
-  const DEPARTMENTS = ['현장소장', '공무팀', '공사팀', '안전팀', '품질팀', '직영팀']
   const [name, setName] = useState(user?.name || '')
   const [jobTitle, setJobTitle] = useState(user?.job_title || '')
   const [department, setDepartment] = useState(user?.department || '')
+  const [departments, setDepartments] = useState([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    api.get('/api/users/departments/list').then(({ data }) => {
+      setDepartments(data.map((d) => d.name || d))
+    }).catch(() => {})
+  }, [])
 
   async function handleSave() {
     if (!name.trim()) { setError('이름을 입력해주세요.'); return }
@@ -289,15 +315,25 @@ function ProfileModal({ user, onClose, onSaved }) {
           </div>
           <div>
             <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">부서</label>
-            <select
-              value={department}
-              onChange={(e) => setDepartment(e.target.value)}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              {DEPARTMENTS.map((d) => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
+            {departments.length > 0 ? (
+              <select
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="">-- 부서 선택 --</option>
+                {departments.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                placeholder="부서명 입력"
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            )}
           </div>
           {error && <p className="text-xs text-red-500">{error}</p>}
         </div>
@@ -307,6 +343,117 @@ function ProfileModal({ user, onClose, onSaved }) {
           </button>
           <button onClick={handleSave} disabled={saving} className="flex-1 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
             {saving ? '저장 중...' : '저장'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function NotifPrefModal({ onClose }) {
+  const PREF_FIELDS = [
+    { key: 'notify_assigned', label: '업무 배정 알림' },
+    { key: 'notify_status_changed', label: '상태 변경 알림' },
+    { key: 'notify_due_soon', label: '마감 임박 알림' },
+    { key: 'notify_mentioned', label: '멘션 알림' },
+    { key: 'notify_reassigned', label: '담당자 변경 알림' },
+    { key: 'notify_commented', label: '새 댓글 알림' },
+  ]
+  const EMAIL_FIELDS = [
+    { key: 'email_assigned', label: '업무 배정 이메일' },
+    { key: 'email_status_changed', label: '상태 변경 이메일' },
+    { key: 'email_due_soon', label: '마감 임박 이메일' },
+    { key: 'email_mentioned', label: '멘션 이메일' },
+    { key: 'email_reassigned', label: '담당자 변경 이메일' },
+  ]
+
+  const [prefs, setPrefs] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    api.get('/api/users/me/notification-preferences').then(({ data }) => {
+      setPrefs(data)
+    }).catch(() => {
+      setPrefs({
+        notify_assigned: true, notify_status_changed: true, notify_due_soon: true,
+        notify_mentioned: true, notify_reassigned: true, notify_commented: true,
+        email_assigned: true, email_status_changed: true, email_due_soon: true,
+        email_mentioned: true, email_reassigned: true,
+      })
+    })
+  }, [])
+
+  function toggle(key) {
+    setPrefs((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      await api.patch('/api/users/me/notification-preferences', prefs)
+      setSaved(true)
+      setTimeout(onClose, 800)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 w-96">
+        <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-4">알림 설정</h3>
+        {prefs === null ? (
+          <div className="flex justify-center py-8">
+            <div className="w-6 h-6 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">인앱 알림</p>
+              <div className="space-y-2">
+                {PREF_FIELDS.map(({ key, label }) => (
+                  <label key={key} className="flex items-center justify-between cursor-pointer">
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
+                    <button
+                      type="button"
+                      onClick={() => toggle(key)}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${prefs[key] ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+                    >
+                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${prefs[key] ? 'translate-x-4' : 'translate-x-1'}`} />
+                    </button>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <hr className="border-gray-100 dark:border-gray-700" />
+            <div>
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">이메일 알림</p>
+              <div className="space-y-2">
+                {EMAIL_FIELDS.map(({ key, label }) => (
+                  <label key={key} className="flex items-center justify-between cursor-pointer">
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
+                    <button
+                      type="button"
+                      onClick={() => toggle(key)}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${prefs[key] ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+                    >
+                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${prefs[key] ? 'translate-x-4' : 'translate-x-1'}`} />
+                    </button>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="flex gap-3 mt-5">
+          <button onClick={onClose} className="flex-1 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+            취소
+          </button>
+          <button onClick={handleSave} disabled={saving || saved || prefs === null} className="flex-1 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
+            {saved ? '저장됨!' : saving ? '저장 중...' : '저장'}
           </button>
         </div>
       </div>
@@ -325,7 +472,7 @@ function PasswordModal({ onClose }) {
   async function handleSave() {
     if (!current || !next || !confirm) { setError('모든 항목을 입력해주세요.'); return }
     if (next !== confirm) { setError('새 비밀번호가 일치하지 않습니다.'); return }
-    if (next.length < 6) { setError('새 비밀번호는 6자 이상이어야 합니다.'); return }
+    if (next.length < 8) { setError('새 비밀번호는 8자 이상이어야 합니다.'); return }
     setSaving(true)
     setError('')
     try {
@@ -355,7 +502,7 @@ function PasswordModal({ onClose }) {
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500" />
             </div>
             <div>
-              <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">새 비밀번호 (6자 이상)</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">새 비밀번호 (8자 이상, 대소문자·숫자·특수문자 포함)</label>
               <input type="password" value={next} onChange={(e) => setNext(e.target.value)}
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500" />
             </div>
