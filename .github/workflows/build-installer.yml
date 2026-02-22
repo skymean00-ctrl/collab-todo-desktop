@@ -1,57 +1,48 @@
-name: Build Windows Installer
+name: Windows 인스톨러 빌드
 
 on:
   push:
     tags:
-      - 'v*'
-  workflow_dispatch:
+      - 'v*'           # v1.0.0 형태의 태그가 올라오면 자동 빌드
+  workflow_dispatch:   # GitHub Actions 탭에서 수동 실행 가능
+
+permissions:
+  contents: write      # GitHub 릴리스 생성/업로드에 필요
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
-    permissions:
-      contents: write
 
     steps:
-      - name: 코드 체크아웃
+      - name: 소스 체크아웃
         uses: actions/checkout@v4
 
-      - name: .NET 8 설정
-        uses: actions/setup-dotnet@v4
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
         with:
-          dotnet-version: '8.0.x'
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: WPF 앱 빌드
-        run: dotnet publish CollabTodoDesktop/CollabTodoDesktop.csproj -c Release -r win-x64 --self-contained true
-        shell: pwsh
+      - name: 의존성 설치
+        working-directory: frontend
+        run: npm install
 
-      - name: 빌드 결과 확인
-        run: Get-ChildItem -Path "CollabTodoDesktop/bin/Release/net8.0-windows/win-x64/publish"
-        shell: pwsh
+      - name: React 빌드
+        working-directory: frontend
+        run: npm run build:web
 
-      - name: Inno Setup 으로 설치파일 생성
-        uses: Minionguyjpro/Inno-Setup-Action@v1.2.4
-        with:
-          path: Installer/setup.iss
-          options: /O"dist"
-
-      - name: dist 폴더 확인
-        run: Get-ChildItem -Path "dist" -Recurse
-        shell: pwsh
-
-      - name: GitHub Release 생성 및 업로드
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*.exe
-          generate_release_notes: false
-          body: |
-            ## Collab ToDo Desktop 설치 방법
-
-            1. `CollabTodoDesktop-Setup-*.exe` 다운로드
-            2. 더블클릭하여 설치 진행
-            3. 설치 완료 후 바탕화면 아이콘으로 실행
-            4. 로그인: 관리자에게 계정 발급 요청
-
-            **서버**: https://api.skymeanai.com
+      - name: Electron 인스톨러 빌드
+        working-directory: frontend
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --x64 --publish ${{ github.ref_type == 'tag' && 'always' || 'never' }}
+
+      - name: 빌드 결과물 업로드 (아티팩트)
+        uses: actions/upload-artifact@v4
+        with:
+          name: CollabTodo-Windows-Installer
+          path: |
+            frontend/dist-electron/*.exe
+            frontend/dist-electron/latest.yml
+          retention-days: 30
