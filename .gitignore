@@ -31,3 +31,8 @@ backend/.env
 .DS_Store
 Thumbs.db
 
+
+# 서버 전용 파일
+deploy.log
+sync.sh
+scripts/
