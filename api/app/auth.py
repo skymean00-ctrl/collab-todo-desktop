@@ -17,6 +17,19 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
+def _db_bool(val) -> bool:
+    """MySQL 컬럼 값을 Python bool로 안전하게 변환.
+
+    MySQL BIT(1) → bytes (b'\\x00'/b'\\x01'), TINYINT → int, NULL → None
+    모두 올바른 bool로 변환한다.
+    """
+    if val is None:
+        return False
+    if isinstance(val, (bytes, bytearray)):
+        return val != b'\x00' and len(val) > 0
+    return bool(val)
+
+
 def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
@@ -44,7 +57,7 @@ def authenticate_user(username: str, password: str) -> Optional[dict]:
         user = cursor.fetchone()
         cursor.close()
 
-    if not user or not user["is_active"] or user.get("is_deleted"):
+    if not user or not _db_bool(user["is_active"]) or _db_bool(user.get("is_deleted")):
         return None
     if not user["password_hash"] or not verify_password(password, user["password_hash"]):
         return None
@@ -80,11 +93,11 @@ def get_current_user(
     with get_db() as conn:
         cursor = conn.cursor(dictionary=True)
         cursor.execute(
-            "SELECT is_active, is_deleted FROM users WHERE id = %s", (user_id,)
+            "SELECT is_active, COALESCE(is_deleted, 0) AS is_deleted FROM users WHERE id = %s", (user_id,)
         )
         db_user = cursor.fetchone()
         cursor.close()
-    if not db_user or not db_user["is_active"] or db_user.get("is_deleted"):
+    if not db_user or not _db_bool(db_user["is_active"]) or _db_bool(db_user["is_deleted"]):
         print(f"[AUTH-FAIL] DB check failed user_id={user_id} db_user={db_user}", flush=True)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

@@ -2,7 +2,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from ..auth import get_current_user, hash_password
+from ..auth import get_current_user, hash_password, _db_bool
 from ..db import get_db
 
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -62,7 +62,7 @@ class AdminUpdateUser(BaseModel):
 def list_users(current_user: dict = Depends(get_current_user)):
     with get_db() as conn:
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT id, username, display_name, email, role, department FROM users WHERE is_active=1 AND is_deleted=0 ORDER BY display_name")
+        cursor.execute("SELECT id, username, display_name, email, role, department FROM users WHERE is_active=1 AND COALESCE(is_deleted, 0)=0 ORDER BY display_name")
         users = cursor.fetchall()
         cursor.close()
     return [{"id": u["id"], "username": u["username"], "name": u["display_name"],
@@ -219,7 +219,7 @@ def admin_list_users(current_user: dict = Depends(get_current_user)):
         cursor = conn.cursor(dictionary=True)
         cursor.execute(
             "SELECT id, username, display_name, email, role, department, is_active, created_at "
-            "FROM users WHERE is_deleted=0 ORDER BY created_at DESC"
+            "FROM users WHERE COALESCE(is_deleted, 0)=0 ORDER BY created_at DESC"
         )
         users = cursor.fetchall()
         cursor.close()
@@ -231,7 +231,7 @@ def admin_list_users(current_user: dict = Depends(get_current_user)):
         "role": u["role"],
         "is_admin": u["role"] == "admin",
         "department": u["department"] or "",
-        "is_active": bool(u["is_active"]),
+        "is_active": _db_bool(u["is_active"]),
         "created_at": u["created_at"].isoformat() if u.get("created_at") else None,
     } for u in users]
 
@@ -312,7 +312,7 @@ def admin_delete_user(user_id: int, current_user: dict = Depends(get_current_use
         raise HTTPException(400, detail="자신의 계정은 삭제할 수 없습니다.")
     with get_db() as conn:
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT id FROM users WHERE id=%s AND is_deleted=0", (user_id,))
+        cursor.execute("SELECT id FROM users WHERE id=%s AND COALESCE(is_deleted, 0)=0", (user_id,))
         if not cursor.fetchone():
             cursor.close()
             raise HTTPException(404, detail="사용자를 찾을 수 없습니다.")

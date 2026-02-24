@@ -13,15 +13,14 @@ router = APIRouter(prefix="/api", tags=["sync"])
 
 class TaskOut(BaseModel):
     id: int
-    project_id: int
     title: str
     description: Optional[str]
     author_id: int
     current_assignee_id: int
-    next_assignee_id: Optional[int]
     status: str
+    priority: Optional[str]
+    progress: Optional[int]
     due_date: Optional[datetime]
-    completed_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
 
@@ -65,12 +64,12 @@ def sync(
         if last_synced_at:
             cursor.execute(
                 """
-                SELECT id, project_id, title, description, author_id,
-                       current_assignee_id, next_assignee_id, status,
-                       due_date, completed_at, created_at, updated_at
+                SELECT id, title, description, author_id,
+                       current_assignee_id, status, priority, progress,
+                       due_date, created_at, updated_at
                   FROM tasks
                  WHERE current_assignee_id = %s
-                   AND status <> 'completed'
+                   AND status <> 'approved'
                    AND (updated_at > %s OR created_at > %s)
                  ORDER BY
                      CASE status
@@ -84,12 +83,12 @@ def sync(
         else:
             cursor.execute(
                 """
-                SELECT id, project_id, title, description, author_id,
-                       current_assignee_id, next_assignee_id, status,
-                       due_date, completed_at, created_at, updated_at
+                SELECT id, title, description, author_id,
+                       current_assignee_id, status, priority, progress,
+                       due_date, created_at, updated_at
                   FROM tasks
                  WHERE current_assignee_id = %s
-                   AND status <> 'completed'
+                   AND status <> 'approved'
                  ORDER BY
                      CASE status
                          WHEN 'in_progress' THEN 1 WHEN 'review' THEN 2
