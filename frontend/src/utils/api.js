@@ -53,12 +53,19 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401 && !_redirecting) {
       const url = error.config?.url || ''
+      // 로그인/회원가입 요청 자체의 401은 무시 (잘못된 비밀번호 등)
       if (!url.includes('/api/auth/login') && !url.includes('/api/auth/register')) {
-        _redirecting = true
-        clearAuthToken()
-        window.dispatchEvent(new Event('auth:session-expired'))
-        window.location.hash = '#/login'
-        setTimeout(() => { _redirecting = false }, 2000)
+        // 토큰이 실제로 존재하는 경우에만 세션 만료 처리
+        // (토큰 없이 호출된 요청의 401은 무시)
+        const hasToken = !!localStorage.getItem('access_token')
+        if (hasToken) {
+          _redirecting = true
+          console.warn('[AUTH] 세션 만료 – 로그인 페이지로 이동합니다.', url)
+          clearAuthToken()
+          window.dispatchEvent(new Event('auth:session-expired'))
+          window.location.hash = '#/login'
+          setTimeout(() => { _redirecting = false }, 3000)
+        }
       }
     }
     return Promise.reject(error)
