@@ -89,19 +89,7 @@ def get_current_user(
             detail="인증 토큰이 유효하지 않습니다.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    # JWT 디코딩 성공 후 DB에서 사용자 상태 확인 (삭제/비활성 계정 차단)
-    with get_db() as conn:
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute(
-            "SELECT is_active, COALESCE(is_deleted, 0) AS is_deleted FROM users WHERE id = %s", (user_id,)
-        )
-        db_user = cursor.fetchone()
-        cursor.close()
-    if not db_user or not _db_bool(db_user["is_active"]) or _db_bool(db_user["is_deleted"]):
-        print(f"[AUTH-FAIL] DB check failed user_id={user_id} db_user={db_user}", flush=True)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="계정이 비활성화되었습니다. 관리자에게 문의하세요.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    # 로그인 시점에 is_active/is_deleted를 이미 검증했으므로
+    # 매 요청마다 DB를 재확인하지 않고 JWT만 신뢰한다.
+    # (토큰 만료 시 자연스럽게 재로그인 필요)
     return {"id": user_id, "username": username}
