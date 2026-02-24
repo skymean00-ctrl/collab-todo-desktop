@@ -6,6 +6,32 @@ from ..db import get_db
 
 router = APIRouter(prefix="/api/bug-reports", tags=["bug-reports"])
 
+_table_ensured = False
+
+_CREATE_TABLE_SQL = """
+    CREATE TABLE IF NOT EXISTS bug_reports (
+        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        reporter_id BIGINT UNSIGNED NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        description TEXT NOT NULL,
+        page VARCHAR(100),
+        steps TEXT,
+        severity ENUM('low','normal','high','critical') DEFAULT 'normal',
+        status ENUM('open','in_review','resolved','closed') DEFAULT 'open',
+        admin_note TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+"""
+
+
+def _ensure_table(cursor):
+    global _table_ensured
+    if _table_ensured:
+        return
+    cursor.execute(_CREATE_TABLE_SQL)
+    _table_ensured = True
+
 
 class BugReportCreate(BaseModel):
     title: str
@@ -20,22 +46,7 @@ def create_bug_report(body: BugReportCreate, current_user: dict = Depends(get_cu
     uid = current_user["id"]
     with get_db() as conn:
         cursor = conn.cursor(dictionary=True)
-        # 테이블 없으면 자동 생성
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS bug_reports (
-                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                reporter_id BIGINT UNSIGNED NOT NULL,
-                title VARCHAR(255) NOT NULL,
-                description TEXT NOT NULL,
-                page VARCHAR(100),
-                steps TEXT,
-                severity ENUM('low','normal','high','critical') DEFAULT 'normal',
-                status ENUM('open','in_review','resolved','closed') DEFAULT 'open',
-                admin_note TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-            )
-        """)
+        _ensure_table(cursor)
         cursor.execute(
             """INSERT INTO bug_reports (reporter_id, title, description, page, steps, severity)
                VALUES (%s, %s, %s, %s, %s, %s)""",
@@ -63,22 +74,7 @@ def list_bug_reports(
         user_row = cursor.fetchone()
         is_admin = user_row and user_row["role"] == "admin"
 
-        # 테이블 없으면 생성
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS bug_reports (
-                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                reporter_id BIGINT UNSIGNED NOT NULL,
-                title VARCHAR(255) NOT NULL,
-                description TEXT NOT NULL,
-                page VARCHAR(100),
-                steps TEXT,
-                severity ENUM('low','normal','high','critical') DEFAULT 'normal',
-                status ENUM('open','in_review','resolved','closed') DEFAULT 'open',
-                admin_note TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-            )
-        """)
+        _ensure_table(cursor)
 
         conditions = []
         params = []

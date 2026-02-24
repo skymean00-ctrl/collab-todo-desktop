@@ -175,8 +175,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchSummary()
-    // 모든 섹션 초기 로드 (탭 카운트 표시용)
+    // 비활성 섹션만 초기 로드 (탭 카운트 표시용, 활성 섹션은 아래 useEffect에서 로드)
     SECTIONS.forEach((s) => {
+      if (s.key === 'assigned_to_me') return  // 초기 활성 섹션은 별도 useEffect에서 로드
       api.get(`/api/tasks/?section=${s.key}&page=1&page_size=20`)
         .then(({ data }) => setTasks((prev) => ({ ...prev, [s.key]: data })))
         .catch(() => {})

@@ -189,7 +189,7 @@ export default function TaskDetailPage() {
       return
     }
     try {
-      await api.patch(`/api/tasks/${taskId}`, { assignee_id: parseInt(newAssigneeId) })
+      await api.post(`/api/tasks/${taskId}/reassign`, { assignee_id: parseInt(newAssigneeId) })
       setShowReassign(false)
       loadTask()
       loadLogs()
@@ -202,7 +202,7 @@ export default function TaskDetailPage() {
     setCloning(true)
     try {
       const { data } = await api.post(`/api/tasks/${taskId}/clone`)
-      if (data.task_id) navigate(`/tasks/${data.task_id}`)
+      if (data.id) navigate(`/tasks/${data.id}`)
     } finally {
       setCloning(false)
     }
