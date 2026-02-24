@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { setAuthToken, clearAuthToken } from '../utils/api'
 
 const useAuthStore = create((set) => ({
   user: JSON.parse(localStorage.getItem('user') || 'null'),
@@ -6,7 +7,7 @@ const useAuthStore = create((set) => ({
 
   login: (user, token, refreshToken) => {
     localStorage.setItem('user', JSON.stringify(user))
-    localStorage.setItem('access_token', token)
+    setAuthToken(token)
     if (refreshToken) {
       localStorage.setItem('refresh_token', refreshToken)
     }
@@ -14,16 +15,7 @@ const useAuthStore = create((set) => ({
   },
 
   logout: () => {
-    // 서버에 refresh token 폐기 요청 (best-effort)
-    const refreshToken = localStorage.getItem('refresh_token')
-    if (refreshToken) {
-      import('../utils/api').then(({ default: api }) => {
-        api.post('/api/auth/logout', { refresh_token: refreshToken }).catch(() => {})
-      })
-    }
-    localStorage.removeItem('user')
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
+    clearAuthToken()
     set({ user: null, token: null })
   },
 
@@ -43,5 +35,12 @@ const useAuthStore = create((set) => ({
     })
   },
 }))
+
+// 세션 만료 이벤트 수신 (api.js에서 발생)
+if (typeof window !== 'undefined') {
+  window.addEventListener('auth:session-expired', () => {
+    useAuthStore.setState({ user: null, token: null })
+  })
+}
 
 export default useAuthStore

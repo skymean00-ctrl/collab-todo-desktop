@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import useAuthStore from '../store/authStore'
 import api from '../utils/api'
 import VerificationBanner from './VerificationBanner'
+import BugReportModal from './BugReportModal'
 import { toggleDarkMode, isDark } from '../utils/darkMode'
 
 export default function Layout() {
@@ -16,6 +17,7 @@ export default function Layout() {
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [showNotifPrefModal, setShowNotifPrefModal] = useState(false)
+  const [showBugReport, setShowBugReport] = useState(false)
   const userMenuRef = useRef(null)
 
   useEffect(() => {
@@ -218,6 +220,13 @@ export default function Layout() {
                 </button>
                 <hr className="border-gray-100 dark:border-gray-700 my-1" />
                 <button
+                  onClick={() => { setShowBugReport(true); setShowUserMenu(false) }}
+                  className="w-full text-left px-4 py-2 text-sm text-orange-600 dark:text-orange-400 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
+                >
+                  🐛 오류 신고
+                </button>
+                <hr className="border-gray-100 dark:border-gray-700 my-1" />
+                <button
                   onClick={handleLogout}
                   className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
@@ -254,6 +263,11 @@ export default function Layout() {
       {/* 알림 설정 모달 */}
       {showNotifPrefModal && (
         <NotifPrefModal onClose={() => setShowNotifPrefModal(false)} />
+      )}
+
+      {/* 오류 신고 모달 */}
+      {showBugReport && (
+        <BugReportModal onClose={() => setShowBugReport(false)} />
       )}
     </div>
   )

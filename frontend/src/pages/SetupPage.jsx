@@ -17,13 +17,16 @@ export default function SetupPage() {
       const res = await axios.get(`${targetUrl}/health`, { timeout: 5000 })
       if (res.data?.status === 'ok') {
         setStatus('ok')
+        return true
       } else {
         setStatus('error')
         setErrorMsg('서버 응답이 올바르지 않습니다.')
+        return false
       }
     } catch {
       setStatus('error')
       setErrorMsg('서버에 연결할 수 없습니다. 주소와 서버 상태를 확인해주세요.')
+      return false
     } finally {
       setTesting(false)
     }
@@ -31,8 +34,8 @@ export default function SetupPage() {
 
   async function handleSave() {
     const trimmed = url.replace(/\/$/, '') // 끝 슬래시 제거
-    await testConnection(trimmed)
-    if (status !== 'ok') return
+    const ok = await testConnection(trimmed)
+    if (!ok) return
 
     // Electron 환경: config 파일에 저장
     if (window.electronAPI?.setServerUrl) {
@@ -73,7 +76,7 @@ export default function SetupPage() {
               value={url}
               onChange={(e) => { setUrl(e.target.value); setStatus(null) }}
               placeholder="http://192.168.0.10:8000"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono"
             />
             <p className="text-xs text-gray-400 mt-1">
               관리자에게 받은 서버 주소를 입력하세요.

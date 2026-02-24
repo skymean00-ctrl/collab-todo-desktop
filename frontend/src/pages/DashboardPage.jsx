@@ -173,7 +173,15 @@ export default function DashboardPage() {
   const [bulkComment, setBulkComment] = useState('')
   const [bulkLoading, setBulkLoading] = useState(false)
 
-  useEffect(() => { fetchSummary() }, [])
+  useEffect(() => {
+    fetchSummary()
+    // 모든 섹션 초기 로드 (탭 카운트 표시용)
+    SECTIONS.forEach((s) => {
+      api.get(`/api/tasks/?section=${s.key}&page=1&page_size=20`)
+        .then(({ data }) => setTasks((prev) => ({ ...prev, [s.key]: data })))
+        .catch(() => {})
+    })
+  }, [])
 
   useEffect(() => {
     api.get('/api/users/me/filter-presets').then(({ data }) => setPresets(data)).catch(() => {})
@@ -211,6 +219,8 @@ export default function DashboardPage() {
       params.append('sort_dir', currentSort.sort_dir)
       const { data } = await api.get(`/api/tasks/?${params}`)
       setTasks((prev) => ({ ...prev, [section]: data }))
+    } catch (e) {
+      console.error('fetchTasks error:', e)
     } finally {
       setLoading(false)
     }
@@ -276,7 +286,7 @@ export default function DashboardPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `tasks_${new Date().toISOString().slice(0, 10)}.xlsx`
+      a.download = `tasks_${new Date().toISOString().slice(0, 10)}.csv`
       a.click()
       URL.revokeObjectURL(url)
     } catch (e) {
@@ -439,13 +449,17 @@ export default function DashboardPage() {
             <button key={s.key} onClick={() => setActiveSection(s.key)}
               className={`px-3 md:px-4 py-2 rounded-lg text-sm font-medium transition ${
                 activeSection === s.key
-                  ? 'bg-white dark:bg-gray-600 text-primary-700 dark:text-primary-300 shadow-sm'
+                  ? 'bg-white dark:bg-gray-600 text-primary-700 dark:text-white shadow-sm'
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
             >
               {s.label}
               {tasks[s.key] && (
-                <span className="ml-1 text-xs bg-gray-200 dark:bg-gray-500 text-gray-600 dark:text-gray-200 rounded-full px-1.5">
+                <span className={`ml-1 text-xs rounded-full px-1.5 ${
+                  activeSection === s.key
+                    ? 'bg-primary-100 dark:bg-primary-800 text-primary-700 dark:text-primary-200'
+                    : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
+                }`}>
                   {tasks[s.key].total ?? tasks[s.key].items?.length ?? 0}
                 </span>
               )}
@@ -488,10 +502,10 @@ export default function DashboardPage() {
           )}
 
           {/* Excel 내보내기 */}
-          <button onClick={exportExcel} title="Excel 내보내기"
+          <button onClick={exportExcel} title="CSV 내보내기 (Excel에서 열기 가능)"
             className="bg-green-600 text-white px-3 py-2 rounded-xl text-sm hover:bg-green-700 flex items-center gap-1"
           >
-            ↓ Excel
+            ↓ CSV
           </button>
 
           {/* 프리셋 */}
@@ -568,8 +582,10 @@ export default function DashboardPage() {
           <div className="flex gap-1 flex-wrap">
             {STATUS_FILTERS.map((f) => (
               <button key={f.value} onClick={() => setStatusFilter(f.value)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition ${
-                  statusFilter === f.value ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                className={`px-3 py-1 rounded-full text-xs font-semibold transition ${
+                  statusFilter === f.value
+                    ? 'bg-primary-600 text-white ring-2 ring-primary-400 ring-offset-1 dark:ring-offset-gray-800'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
                 {f.label}
@@ -583,8 +599,10 @@ export default function DashboardPage() {
           <div className="flex gap-1 flex-wrap">
             {PRIORITY_FILTERS.map((f) => (
               <button key={f.value} onClick={() => setPriorityFilter(f.value)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition ${
-                  priorityFilter === f.value ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                className={`px-3 py-1 rounded-full text-xs font-semibold transition ${
+                  priorityFilter === f.value
+                    ? 'bg-primary-600 text-white ring-2 ring-primary-400 ring-offset-1 dark:ring-offset-gray-800'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
                 {f.label}

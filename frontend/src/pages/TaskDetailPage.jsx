@@ -35,11 +35,14 @@ export default function TaskDetailPage() {
   const [uploading, setUploading] = useState(false)
   const [cloning, setCloning] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [loadError, setLoadError] = useState(null)
 
   // 담당자 변경
   const [showReassign, setShowReassign] = useState(false)
   const [users, setUsers] = useState([])
   const [newAssigneeId, setNewAssigneeId] = useState('')
+  const [assigneeSearch, setAssigneeSearch] = useState('')
+  const [showUserList, setShowUserList] = useState(false)
 
   // 댓글 수정
   const [editingLogId, setEditingLogId] = useState(null)
@@ -55,14 +58,22 @@ export default function TaskDetailPage() {
   }, [taskId])
 
   async function loadTask() {
-    const { data } = await api.get(`/api/tasks/${taskId}`)
-    setTask(data)
-    setProgress(data.progress)
+    try {
+      const { data } = await api.get(`/api/tasks/${taskId}`)
+      setTask(data)
+      setProgress(data.progress)
+    } catch (err) {
+      setLoadError(err.response?.data?.detail || '업무를 불러올 수 없습니다.')
+    }
   }
 
   async function loadLogs() {
-    const { data } = await api.get(`/api/tasks/${taskId}/logs`)
-    setLogs(data)
+    try {
+      const { data } = await api.get(`/api/tasks/${taskId}/logs`)
+      setLogs(data)
+    } catch (err) {
+      console.error('이력 로드 실패', err)
+    }
   }
 
   async function changeStatus(newStatus) {
@@ -159,20 +170,32 @@ export default function TaskDetailPage() {
     if (!showReassign) {
       const { data } = await api.get('/api/users/')
       setUsers(data)
-      setNewAssigneeId(task.assignee?.id || '')
+      setNewAssigneeId(String(task.assignee?.id || ''))
+      setAssigneeSearch(task.assignee?.name || '')
+      setShowUserList(false)
     }
     setShowReassign((v) => !v)
   }
 
+  const filteredReassignUsers = users.filter((u) => {
+    const q = assigneeSearch.toLowerCase()
+    return u.name.toLowerCase().includes(q) || (u.department && u.department.toLowerCase().includes(q))
+  })
+
   async function submitReassign() {
-    if (!newAssigneeId || parseInt(newAssigneeId) === task.assignee?.id) {
+    if (!newAssigneeId) return
+    if (parseInt(newAssigneeId) === task.assignee?.id) {
       setShowReassign(false)
       return
     }
-    await api.patch(`/api/tasks/${taskId}`, { assignee_id: parseInt(newAssigneeId) })
-    setShowReassign(false)
-    loadTask()
-    loadLogs()
+    try {
+      await api.patch(`/api/tasks/${taskId}`, { assignee_id: parseInt(newAssigneeId) })
+      setShowReassign(false)
+      loadTask()
+      loadLogs()
+    } catch (err) {
+      alert(err.response?.data?.detail || '담당자 변경에 실패했습니다.')
+    }
   }
 
   async function handleClone() {
@@ -225,11 +248,18 @@ export default function TaskDetailPage() {
     }
   }
 
+  if (loadError) return (
+    <div className="p-8 text-center">
+      <p className="text-red-500 mb-3">{loadError}</p>
+      <button onClick={() => navigate(-1)} className="text-sm text-primary-600 hover:underline">← 목록으로</button>
+    </div>
+  )
   if (!task) return <div className="p-8 text-center text-gray-400">불러오는 중...</div>
 
   const flow = STATUS_FLOW[task.status] || { label: task.status, next: [] }
   const isAssigner = user?.id === task.assigner?.id
   const isAssignee = user?.id === task.assignee?.id
+  const canReassign = isAssigner || isAssignee || user?.is_admin  // 지시자·담당자·관리자 모두 가능
   const canChangeStatus =
     (isAssignee && ['pending', 'in_progress', 'rejected'].includes(task.status)) ||
     (isAssigner && task.status === 'review')
@@ -264,7 +294,7 @@ export default function TaskDetailPage() {
           >
             {cloning ? '복사 중...' : '업무 복사'}
           </button>
-          {isAssigner && (
+          {canReassign && (
             <button
               onClick={openReassign}
               className="text-xs border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
@@ -285,21 +315,46 @@ export default function TaskDetailPage() {
       </div>
 
       {/* 담당자 변경 패널 */}
-      {showReassign && isAssigner && (
-        <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 flex items-center gap-3">
-          <span className="text-sm text-gray-700 dark:text-gray-200 font-medium">새 담당자</span>
-          <select
-            value={newAssigneeId}
-            onChange={(e) => setNewAssigneeId(e.target.value)}
-            className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            <option value="">담당자 선택</option>
-            {users.map((u) => (
-              <option key={u.id} value={u.id}>{u.name} ({u.department})</option>
-            ))}
-          </select>
-          <button onClick={submitReassign} className="bg-primary-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-primary-700">변경</button>
-          <button onClick={() => setShowReassign(false)} className="text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">취소</button>
+      {showReassign && canReassign && (
+        <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">새 담당자 선택</p>
+          <div className="flex gap-2 items-start">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={assigneeSearch}
+                onChange={(e) => { setAssigneeSearch(e.target.value); setNewAssigneeId(''); setShowUserList(true) }}
+                onFocus={() => setShowUserList(true)}
+                placeholder="이름 또는 부서로 검색..."
+                autoComplete="off"
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+              {newAssigneeId && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 text-sm">✓</span>}
+              {showUserList && (
+                <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                  {filteredReassignUsers.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-gray-400">검색 결과 없음</div>
+                  ) : (
+                    filteredReassignUsers.map((u) => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() => { setNewAssigneeId(String(u.id)); setAssigneeSearch(u.name + (u.department ? ` (${u.department})` : '')); setShowUserList(false) }}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-primary-50 dark:hover:bg-primary-900/30 flex items-center justify-between ${
+                          newAssigneeId === String(u.id) ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300' : 'text-gray-700 dark:text-gray-200'
+                        }`}
+                      >
+                        <span>{u.name}</span>
+                        {u.department && <span className="text-xs text-gray-400">{u.department}</span>}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+            <button onClick={submitReassign} disabled={!newAssigneeId} className="bg-primary-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-primary-700 disabled:opacity-40 whitespace-nowrap">변경</button>
+            <button onClick={() => setShowReassign(false)} className="text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 whitespace-nowrap">취소</button>
+          </div>
         </div>
       )}
 

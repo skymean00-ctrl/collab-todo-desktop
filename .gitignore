@@ -26,6 +26,10 @@ frontend/.vite/
 # 환경설정 (실제 값 포함되면 안됨)
 .env
 backend/.env
+frontend/.env.production
+
+# pnpm local cache
+frontend/.pnpm-store/
 
 # OS
 .DS_Store

@@ -3,10 +3,15 @@ import { useNavigate, Link } from 'react-router-dom'
 import api from '../utils/api'
 import useAuthStore from '../store/authStore'
 
+const LAST_EMAIL_KEY = 'last_login_email'
+
 export default function LoginPage() {
   const navigate = useNavigate()
   const login = useAuthStore((s) => s.login)
-  const [form, setForm] = useState({ email: '', password: '' })
+  const [form, setForm] = useState({
+    email: localStorage.getItem(LAST_EMAIL_KEY) || '',
+    password: '',
+  })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -15,10 +20,12 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      const params = new URLSearchParams()
-      params.append('username', form.email)
-      params.append('password', form.password)
-      const { data } = await api.post('/api/auth/login', params)
+      const { data } = await api.post('/api/auth/login', {
+        username: form.email,
+        password: form.password,
+      })
+      // 마지막 로그인 이메일 저장
+      localStorage.setItem(LAST_EMAIL_KEY, form.email)
       login(
         {
           id: data.user_id, name: data.name, email: data.email,

@@ -62,19 +62,31 @@ export default function NotificationsPage() {
   useEffect(() => { load() }, [load])
 
   async function markRead(id) {
-    await api.post(`/api/notifications/${id}/read`)
-    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: true } : n))
+    try {
+      await api.post(`/api/notifications/${id}/read`)
+      setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: true } : n))
+    } catch (err) {
+      console.error('읽음 처리 실패', err)
+    }
   }
 
   async function markAllRead() {
-    await api.post('/api/notifications/read-all')
-    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+    try {
+      await api.post('/api/notifications/read-all')
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+    } catch (err) {
+      console.error('전체 읽음 처리 실패', err)
+    }
   }
 
   async function deleteNotif(id) {
-    await api.delete(`/api/notifications/${id}`)
-    setNotifications((prev) => prev.filter((n) => n.id !== id))
-    setTotal((t) => t - 1)
+    try {
+      await api.delete(`/api/notifications/${id}`)
+      setNotifications((prev) => prev.filter((n) => n.id !== id))
+      setTotal((t) => t - 1)
+    } catch (err) {
+      console.error('알림 삭제 실패', err)
+    }
   }
 
   function handleClick(n) {

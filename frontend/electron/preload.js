@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 자동 업데이트
   onUpdateAvailable: (cb) => ipcRenderer.on('update-available', cb),
   onUpdateDownloaded: (cb) => ipcRenderer.on('update-downloaded', cb),
+  downloadUpdate: () => ipcRenderer.send('download-update'),
   installUpdate: () => ipcRenderer.send('install-update'),
 
   // 업무 페이지 이동 (알림 클릭 시)
